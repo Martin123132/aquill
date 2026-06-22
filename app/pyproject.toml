@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "revenge-transcriber"
+version = "0.1.0"
+description = "Local-first transcription and subtitle generation."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "AGPL-3.0-or-later" }
+authors = [
+  { name = "Revenge Tour" }
+]
+dependencies = [
+  "faster-whisper>=1.1.0",
+  "fastapi>=0.115.0",
+  "python-multipart>=0.0.9",
+  "uvicorn[standard]>=0.30.0",
+  "imageio-ffmpeg>=0.5.1"
+]
+
+[project.scripts]
+revenge-transcribe = "revenge_transcriber.cli:main"
+revenge-transcriber-api = "revenge_transcriber.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
