@@ -20,7 +20,7 @@ from .db import initialise_database, insert_job, list_jobs as db_list_jobs
 from .db import list_output_dirs, update_job_status
 from .formatters import TranscriptResult, TranscriptSegment, read_json, write_all_outputs
 from .naming import make_job_name, safe_file_name
-from .paths import configure_environment, inputs_dir, models_dir, outputs_dir
+from .paths import cache_dir, configure_environment, data_dir, inputs_dir, models_dir, outputs_dir, project_root, tmp_dir
 from .pipeline import TranscriptionOptions, run_transcription_job
 from .records import JobRecord, JobStatus
 
@@ -348,6 +348,19 @@ def list_models() -> dict[str, object]:
     return {
         "models_dir": str(models_dir()),
         "models": [model_payload(model) for model in MODELS],
+    }
+
+
+@app.get("/api/system/storage")
+def storage_status() -> dict[str, str]:
+    return {
+        "project_root": str(project_root()),
+        "inputs_dir": str(inputs_dir()),
+        "outputs_dir": str(outputs_dir()),
+        "models_dir": str(models_dir()),
+        "data_dir": str(data_dir()),
+        "tmp_dir": str(tmp_dir()),
+        "cache_dir": str(cache_dir()),
     }
 
 

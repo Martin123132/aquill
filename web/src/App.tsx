@@ -61,6 +61,16 @@ type ModelInfo = {
   size_bytes: number;
 };
 
+type StorageInfo = {
+  project_root: string;
+  inputs_dir: string;
+  outputs_dir: string;
+  models_dir: string;
+  data_dir: string;
+  tmp_dir: string;
+  cache_dir: string;
+};
+
 type Settings = {
   version: 1;
   model: string;
@@ -108,10 +118,20 @@ const ARTIFACT_LABELS: Record<string, string> = {
   vtt: "VTT",
   audio: "WAV"
 };
+const STORAGE_LABELS: Record<keyof StorageInfo, string> = {
+  project_root: "Project",
+  inputs_dir: "Inputs",
+  outputs_dir: "Outputs",
+  models_dir: "Models",
+  data_dir: "Database",
+  tmp_dir: "Temp",
+  cache_dir: "Cache"
+};
 
 function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [models, setModels] = useState<ModelInfo[]>([]);
+  const [storageInfo, setStorageInfo] = useState<StorageInfo | null>(null);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<Transcript | null>(null);
   const [draftSegments, setDraftSegments] = useState<TranscriptSegment[]>([]);
@@ -138,6 +158,7 @@ function App() {
   useEffect(() => {
     void refreshJobs();
     void refreshModels();
+    void refreshStorage();
     const timer = window.setInterval(refreshJobs, 1600);
     return () => window.clearInterval(timer);
   }, []);
@@ -177,6 +198,17 @@ function App() {
       setModels(payload.models);
     } finally {
       setIsRefreshingModels(false);
+    }
+  }
+
+  async function refreshStorage() {
+    try {
+      const response = await fetch("/api/system/storage");
+      if (!response.ok) return;
+      const payload = (await response.json()) as StorageInfo;
+      setStorageInfo(payload);
+    } catch {
+      return;
     }
   }
 
@@ -603,6 +635,25 @@ function App() {
               </div>
             ))}
           </div>
+        </section>
+
+        <section className="panel storage-panel">
+          <div className="transcript-header">
+            <PanelHeading icon={<HardDrive size={17} aria-hidden />} title="Storage" />
+            <span className="storage-badge">D-drive local</span>
+          </div>
+          {storageInfo ? (
+            <div className="storage-grid">
+              {(Object.entries(STORAGE_LABELS) as [keyof StorageInfo, string][]).map(([key, label]) => (
+                <div className="storage-row" key={key}>
+                  <span>{label}</span>
+                  <code>{storageInfo[key]}</code>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-transcript">Storage paths will appear when the API is available.</div>
+          )}
         </section>
 
         <section className="panel transcript-panel">

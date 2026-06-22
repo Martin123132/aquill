@@ -653,6 +653,54 @@ button {
   padding: 16px;
 }
 
+.storage-panel {
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.storage-badge {
+  border: 1px solid #b8ddd5;
+  border-radius: 999px;
+  padding: 5px 9px;
+  color: var(--teal-dark);
+  background: #e8f6f3;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.storage-grid {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+
+.storage-row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcfc;
+}
+
+.storage-row span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+  text-transform: uppercase;
+}
+
+.storage-row code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #26312d;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
 .model-grid {
   margin-top: 14px;
   display: grid;
@@ -879,7 +927,8 @@ button {
   .job-actions,
   .job-metrics,
   .model-row,
-  .model-actions {
+  .model-actions,
+  .storage-row {
     grid-template-columns: 1fr;
   }
 

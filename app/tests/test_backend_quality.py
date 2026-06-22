@@ -86,6 +86,23 @@ class BackendQualityTests(unittest.TestCase):
         self.assertEqual(migrated.started_at, "2026-06-21T20:00:00+00:00")
         self.assertIsNone(migrated.completed_at)
 
+    def test_storage_status_reports_d_drive_paths(self) -> None:
+        status = server.storage_status()
+
+        expected_keys = {
+            "project_root",
+            "inputs_dir",
+            "outputs_dir",
+            "models_dir",
+            "data_dir",
+            "tmp_dir",
+            "cache_dir",
+        }
+        self.assertEqual(set(status), expected_keys)
+        for label, value in status.items():
+            with self.subTest(label=label):
+                self.assertTrue(str(Path(value).resolve()).startswith(str(TEST_ROOT)))
+
     def test_cancel_queued_job_marks_final_and_clears_future_state(self) -> None:
         blocking_id = f"test-blocking-{uuid.uuid4().hex}"
         queued_id = f"test-queued-{uuid.uuid4().hex}"

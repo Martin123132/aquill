@@ -156,3 +156,4 @@ The first vertical slice works:
 13. Import validated job archives back into local D-drive storage as restored completed jobs.
 14. Smoke-test archive export/import round-trips against the running local API.
 15. Run backend, web, and optional live archive smoke checks from one D-drive-safe quality command.
+16. Show active D-drive project, input, output, model, data, temp, and cache paths in the local UI.
