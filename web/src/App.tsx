@@ -127,6 +127,7 @@ const STORAGE_LABELS: Record<keyof StorageInfo, string> = {
   tmp_dir: "Temp",
   cache_dir: "Cache"
 };
+const ZIP_MIME_TYPES = new Set(["application/zip", "application/x-zip-compressed", ""]);
 
 function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -320,8 +321,13 @@ function App() {
 
   async function importArchive(file: File | null) {
     if (!file) return;
+    if (!isZipArchive(file)) {
+      setArchiveStatus(null);
+      setError("Choose a ZIP archive exported by this app.");
+      return;
+    }
     setIsImportingArchive(true);
-    setArchiveStatus(null);
+    setArchiveStatus(`Importing ${file.name}`);
     setError(null);
 
     try {
@@ -335,10 +341,12 @@ function App() {
       const payload = (await response.json()) as { job: Job };
       setJobs((current) => [payload.job, ...current.filter((job) => job.id !== payload.job.id)]);
       setActiveJobId(payload.job.id);
-      setArchiveStatus("Archive imported");
+      const artifactCount = Object.keys(payload.job.artifacts).length;
+      setArchiveStatus(`Imported ${artifactCount} artifact${artifactCount === 1 ? "" : "s"}`);
       await refreshJobs();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Archive import failed.");
+      setArchiveStatus(null);
     } finally {
       setIsImportingArchive(false);
     }
@@ -819,6 +827,10 @@ function formatBytes(bytes: number) {
   const kb = bytes / 1024;
   if (kb < 1024) return `${kb.toFixed(1)} KB`;
   return `${(kb / 1024).toFixed(1)} MB`;
+}
+
+function isZipArchive(file: File) {
+  return file.name.toLowerCase().endsWith(".zip") && ZIP_MIME_TYPES.has(file.type);
 }
 
 function totalSelectedBytes(files: File[]) {

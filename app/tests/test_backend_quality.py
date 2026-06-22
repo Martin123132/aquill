@@ -334,6 +334,37 @@ class BackendQualityTests(unittest.TestCase):
 
         self.assertIn("Unsupported archive version", str(raised.exception))
 
+    def test_import_archive_rejects_invalid_zip(self) -> None:
+        archive_path = tmp_dir() / f"not-a-zip-{uuid.uuid4().hex}.zip"
+        self.addCleanup(archive_path.unlink, missing_ok=True)
+        archive_path.write_text("not actually a zip", encoding="utf-8")
+
+        with self.assertRaises(ArchiveImportError) as raised:
+            import_job_archive(archive_path, "2026-06-22T10:00:00+00:00")
+
+        self.assertIn("valid ZIP", str(raised.exception))
+
+    def test_import_archive_cleans_partial_output_on_artifact_error(self) -> None:
+        before = {path.resolve() for path in server.outputs_dir().glob("*")}
+        archive_path = tmp_dir() / f"partial-import-{uuid.uuid4().hex}.zip"
+        self.addCleanup(archive_path.unlink, missing_ok=True)
+        manifest = self._archive_manifest(
+            included_artifacts=[
+                {"artifact": "txt", "file_name": "transcript.txt", "size_bytes": 6},
+                {"artifact": "bogus", "file_name": "bogus.bin", "size_bytes": 1},
+            ]
+        )
+        with zipfile.ZipFile(archive_path, "w") as archive:
+            archive.writestr("manifest.json", manifest)
+            archive.writestr("transcript.txt", "hello\n")
+
+        with self.assertRaises(ArchiveImportError) as raised:
+            import_job_archive(archive_path, "2026-06-22T10:00:00+00:00")
+
+        after = {path.resolve() for path in server.outputs_dir().glob("*")}
+        self.assertIn("Unsupported artifact entry", str(raised.exception))
+        self.assertEqual(after, before)
+
     def _insert_job(self, job_id: str, status: str) -> JobRecord:
         now = server.timestamp()
         input_path = server.inputs_dir() / f"{job_id}.txt"

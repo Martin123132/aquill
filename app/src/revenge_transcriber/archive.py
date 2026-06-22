@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import uuid
 import zipfile
 from dataclasses import asdict
@@ -59,6 +60,7 @@ def build_job_archive(job: JobRecord) -> Path:
 
 def import_job_archive(archive_path: Path, imported_at: str) -> JobRecord:
     archive_path = archive_path.resolve()
+    output_dir: Path | None = None
     try:
         with zipfile.ZipFile(archive_path) as archive:
             manifest = read_manifest(archive)
@@ -81,9 +83,17 @@ def import_job_archive(archive_path: Path, imported_at: str) -> JobRecord:
                     raise ArchiveImportError(f"Archive is missing artifact: {expected_name}")
                 target = output_dir / expected_name
                 target.write_bytes(archive.read(expected_name))
+    except ArchiveImportError:
+        if output_dir is not None:
+            shutil.rmtree(output_dir, ignore_errors=True)
+        raise
     except zipfile.BadZipFile as exc:
+        if output_dir is not None:
+            shutil.rmtree(output_dir, ignore_errors=True)
         raise ArchiveImportError("Archive is not a valid ZIP file.") from exc
     except (KeyError, json.JSONDecodeError, TypeError) as exc:
+        if output_dir is not None:
+            shutil.rmtree(output_dir, ignore_errors=True)
         raise ArchiveImportError("Archive manifest is missing or malformed.") from exc
 
     marker_path = inputs_dir() / f"{new_id}-{file_name}.imported.txt"
