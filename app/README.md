@@ -97,6 +97,7 @@ Endpoints:
 - `DELETE /api/models/{model}`
 
 The API accepts one active transcription worker by default.
+The health endpoint reports API status, project root, database path and availability, worker busy state, active jobs, and total jobs.
 Job history is stored in `D:\revenge-tour\transcriber\data\transcriber.db`.
 Completed output folders are rescanned on API startup so older jobs can reappear.
 Interrupted active jobs are marked failed on API startup so the queue does not get stuck after a restart.

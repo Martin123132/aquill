@@ -103,6 +103,18 @@ class BackendQualityTests(unittest.TestCase):
             with self.subTest(label=label):
                 self.assertTrue(str(Path(value).resolve()).startswith(str(TEST_ROOT)))
 
+    def test_health_reports_storage_and_worker_state(self) -> None:
+        db.initialise_database()
+        health = server.health()
+
+        self.assertEqual(health["status"], "ok")
+        self.assertTrue(str(Path(str(health["root"])).resolve()).startswith(str(TEST_ROOT)))
+        self.assertTrue(str(Path(str(health["database_path"])).resolve()).startswith(str(TEST_ROOT)))
+        self.assertTrue(health["database_available"])
+        self.assertFalse(health["worker_busy"])
+        self.assertEqual(health["active_jobs"], 0)
+        self.assertIsInstance(health["total_jobs"], int)
+
     def test_cancel_queued_job_marks_final_and_clears_future_state(self) -> None:
         blocking_id = f"test-blocking-{uuid.uuid4().hex}"
         queued_id = f"test-queued-{uuid.uuid4().hex}"

@@ -1,5 +1,7 @@
 param(
+  [switch]$IncludeWebSmoke,
   [switch]$IncludeArchiveSmoke,
+  [string]$WebBase = "http://127.0.0.1:5190",
   [string]$ApiBase = "http://127.0.0.1:8091",
   [string]$SourceJobId = ""
 )
@@ -11,12 +13,16 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = "D:\revenge-tour\transcriber"
 $BackendQuality = Join-Path $ProjectRoot "scripts\quality-backend.ps1"
 $WebQuality = Join-Path $ProjectRoot "scripts\quality-web.ps1"
+$WebSmoke = Join-Path $ProjectRoot "scripts\smoke-web-ui.ps1"
 $ArchiveSmoke = Join-Path $ProjectRoot "scripts\smoke-archive-roundtrip.ps1"
-$TotalSteps = if ($IncludeArchiveSmoke) { 3 } else { 2 }
+$TotalSteps = 2
+if ($IncludeWebSmoke) { $TotalSteps += 1 }
+if ($IncludeArchiveSmoke) { $TotalSteps += 1 }
 
 Write-Host ""
 Write-Host "Full local quality check"
 Write-Host "  Project: $ProjectRoot"
+Write-Host "  Web smoke: $($IncludeWebSmoke.IsPresent)"
 Write-Host "  Archive smoke: $($IncludeArchiveSmoke.IsPresent)"
 Write-Host ""
 
@@ -27,9 +33,22 @@ Write-Host ""
 Write-Host "2/$TotalSteps Web quality..."
 & $WebQuality
 
+$Step = 3
+if ($IncludeWebSmoke) {
+  Write-Host ""
+  Write-Host "$Step/$TotalSteps Web UI smoke..."
+  & $WebSmoke -WebBase $WebBase -ApiBase $ApiBase
+  $Step += 1
+}
+else {
+  Write-Host ""
+  Write-Host "Web UI smoke skipped. To include it, start API and web servers, then run:"
+  Write-Host "  D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeWebSmoke"
+}
+
 if ($IncludeArchiveSmoke) {
   Write-Host ""
-  Write-Host "3/$TotalSteps Archive smoke..."
+  Write-Host "$Step/$TotalSteps Archive smoke..."
   if ($SourceJobId) {
     & $ArchiveSmoke -ApiBase $ApiBase -SourceJobId $SourceJobId
   }
@@ -39,7 +58,7 @@ if ($IncludeArchiveSmoke) {
 }
 else {
   Write-Host ""
-  Write-Host "Archive smoke skipped. To include it, run:"
+  Write-Host "Archive smoke skipped. To include it, start the API with a completed job, then run:"
   Write-Host "  D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeArchiveSmoke"
 }
 

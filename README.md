@@ -99,6 +99,12 @@ To also verify the live archive export/import round-trip, start the API first, e
 D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeArchiveSmoke
 ```
 
+To verify the running web UI can reach the API and exposes the storage/archive controls, start both servers, then run:
+
+```powershell
+D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeWebSmoke
+```
+
 ## Archive Smoke Check
 
 With the API running and at least one completed local job available, verify the export/import API round-trip with:
@@ -157,3 +163,4 @@ The first vertical slice works:
 14. Smoke-test archive export/import round-trips against the running local API.
 15. Run backend, web, and optional live archive smoke checks from one D-drive-safe quality command.
 16. Show active D-drive project, input, output, model, data, temp, and cache paths in the local UI.
+17. Smoke-test the running web UI and API proxy without adding browser test dependencies.

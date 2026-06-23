@@ -91,8 +91,17 @@ initialise_database()
 
 
 @app.get("/api/health")
-def health() -> dict[str, str]:
-    return {"status": "ok", "root": str(outputs_dir().parent)}
+def health() -> dict[str, object]:
+    jobs = db_list_jobs()
+    return {
+        "status": "ok",
+        "root": str(project_root()),
+        "database_path": str(data_dir() / "transcriber.db"),
+        "database_available": (data_dir() / "transcriber.db").exists(),
+        "worker_busy": any(job_future_running(job.id) for job in jobs),
+        "active_jobs": sum(1 for job in jobs if job.status in ACTIVE_STATUSES),
+        "total_jobs": len(jobs),
+    }
 
 
 @app.get("/api/jobs")
