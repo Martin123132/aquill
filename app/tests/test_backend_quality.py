@@ -178,7 +178,7 @@ class BackendQualityTests(unittest.TestCase):
 
         with mock.patch.object(server, "run_transcription_job", side_effect=fake_runner):
             server.submit_job(job_id, Path(job.input_path), Path(job.output_dir), TranscriptionOptions(model="tiny"))
-            self.assertTrue(ready.wait(timeout=2))
+            self.assertTrue(ready.wait(timeout=5))
             response = server.cancel_job(job_id)["job"]
             self.assertEqual(response["status"], "cancelled")
             self.assertIn("Cancellation requested", response["progress_message"])

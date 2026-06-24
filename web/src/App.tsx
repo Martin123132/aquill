@@ -15,6 +15,7 @@ import {
   RefreshCw,
   RotateCcw,
   Save,
+  Search,
   Trash2,
   Upload,
   Waves,
@@ -23,6 +24,7 @@ import {
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 type JobStatus = "queued" | "extracting" | "transcribing" | "writing" | "completed" | "failed" | "cancelled";
+type JobFilter = "all" | "active" | "completed" | "attention";
 
 type Job = {
   id: string;
@@ -128,6 +130,14 @@ const STORAGE_LABELS: Record<keyof StorageInfo, string> = {
   cache_dir: "Cache"
 };
 const ZIP_MIME_TYPES = new Set(["application/zip", "application/x-zip-compressed", ""]);
+const JOB_FILTERS: { key: JobFilter; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "active", label: "Active" },
+  { key: "completed", label: "Done" },
+  { key: "attention", label: "Review" }
+];
+const ACTIVE_JOB_STATUSES = new Set<JobStatus>(["queued", "extracting", "transcribing", "writing"]);
+const ATTENTION_JOB_STATUSES = new Set<JobStatus>(["failed", "cancelled"]);
 
 function App() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -145,12 +155,44 @@ function App() {
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [archiveStatus, setArchiveStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [jobFilter, setJobFilter] = useState<JobFilter>("all");
+  const [jobSearch, setJobSearch] = useState("");
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
 
   const activeJob = useMemo(
     () => jobs.find((job) => job.id === activeJobId) ?? jobs[0] ?? null,
     [jobs, activeJobId]
   );
+  const jobFilterCounts = useMemo(() => {
+    const counts: Record<JobFilter, number> = {
+      all: jobs.length,
+      active: 0,
+      completed: 0,
+      attention: 0
+    };
+    for (const job of jobs) {
+      if (ACTIVE_JOB_STATUSES.has(job.status)) counts.active += 1;
+      if (job.status === "completed") counts.completed += 1;
+      if (ATTENTION_JOB_STATUSES.has(job.status)) counts.attention += 1;
+    }
+    return counts;
+  }, [jobs]);
+  const filteredJobs = useMemo(() => {
+    const query = jobSearch.trim().toLowerCase();
+    return jobs.filter((job) => {
+      const matchesFilter =
+        jobFilter === "all" ||
+        (jobFilter === "active" && ACTIVE_JOB_STATUSES.has(job.status)) ||
+        (jobFilter === "completed" && job.status === "completed") ||
+        (jobFilter === "attention" && ATTENTION_JOB_STATUSES.has(job.status));
+      if (!matchesFilter) return false;
+      if (!query) return true;
+      return [job.file_name, job.status, job.progress_message ?? "", job.output_dir]
+        .join(" ")
+        .toLowerCase()
+        .includes(query);
+    });
+  }, [jobFilter, jobSearch, jobs]);
   const transcriptIsDirty = useMemo(() => {
     if (!transcript || draftSegments.length !== transcript.segments.length) return false;
     return draftSegments.some((segment, index) => segment.text !== transcript.segments[index]?.text);
@@ -404,11 +446,37 @@ function App() {
             <Activity size={15} aria-hidden />
             Queue
           </div>
+          <label className="queue-search">
+            <Search size={15} aria-hidden />
+            <input
+              type="search"
+              placeholder="Search jobs"
+              value={jobSearch}
+              onChange={(event) => setJobSearch(event.target.value)}
+              data-testid="job-search-input"
+            />
+          </label>
+          <div className="queue-filters" aria-label="Job filters">
+            {JOB_FILTERS.map((filter) => (
+              <button
+                key={filter.key}
+                className={jobFilter === filter.key ? "active" : ""}
+                type="button"
+                onClick={() => setJobFilter(filter.key)}
+                data-testid={`job-filter-${filter.key}`}
+              >
+                <span>{filter.label}</span>
+                <strong>{jobFilterCounts[filter.key]}</strong>
+              </button>
+            ))}
+          </div>
           <div className="job-list">
             {jobs.length === 0 ? (
               <div className="empty-row">No jobs yet</div>
+            ) : filteredJobs.length === 0 ? (
+              <div className="empty-row">No jobs match this view</div>
             ) : (
-              jobs.map((job) => (
+              filteredJobs.map((job) => (
                 <button
                   key={job.id}
                   className={`job-row ${job.id === activeJob?.id ? "selected" : ""}`}

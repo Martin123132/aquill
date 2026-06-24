@@ -112,6 +112,75 @@ button {
   text-transform: uppercase;
 }
 
+.queue-search {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  color: #9db2ab;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.queue-search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  outline: 0;
+  color: #eef7f4;
+  background: transparent;
+  font-size: 13px;
+}
+
+.queue-search input::placeholder {
+  color: #9db2ab;
+}
+
+.queue-filters {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.queue-filters button {
+  min-width: 0;
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #b6c8c2;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.queue-filters button.active,
+.queue-filters button:hover {
+  color: #ecfffa;
+  background: rgba(11, 123, 114, 0.46);
+  border-color: rgba(223, 244, 236, 0.28);
+}
+
+.queue-filters span,
+.queue-filters strong {
+  line-height: 1;
+}
+
+.queue-filters span {
+  font-size: 11px;
+  font-weight: 720;
+}
+
+.queue-filters strong {
+  font-size: 13px;
+}
+
 .job-list {
   width: 100%;
   min-width: 0;
@@ -903,6 +972,10 @@ button {
   .job-list {
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
     max-height: 160px;
+  }
+
+  .queue-filters {
+    grid-template-columns: repeat(4, minmax(72px, 1fr));
   }
 
   .work-grid,
