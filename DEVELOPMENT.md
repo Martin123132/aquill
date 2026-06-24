@@ -56,6 +56,12 @@ git -C D:\revenge-tour\transcriber diff --cached --stat
 
 - Do not push unless a safe remote is configured and the user has authorized publishing from this thread.
 
+## License Posture
+
+- This project is source-available under the PolyForm Noncommercial License 1.0.0.
+- Do not call it OSI open source in docs, package metadata, releases, or public descriptions.
+- Keep the commercial-use boundary intact: no paid subscription wrapping, hosted transcription/conversion service use, resale, or commercial SaaS inclusion without a separate commercial license.
+
 ## Privacy
 
 - Keep transcription local-first.

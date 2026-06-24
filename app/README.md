@@ -1,6 +1,8 @@
 # Revenge Transcriber
 
-Local-first transcription and subtitle generation. The project is designed to keep working files, model downloads, caches, temporary files, and outputs on `D:\`.
+Source-available, local-first transcription and subtitle generation. The project is designed to keep working files, model downloads, caches, temporary files, and outputs on `D:\`.
+
+Licensed under the PolyForm Noncommercial License 1.0.0. Personal and noncommercial local use is allowed; commercial hosting, resale, paid subscription use, or inclusion in a paid transcription/conversion service is not allowed without a separate commercial license.
 
 ## Storage Contract
 

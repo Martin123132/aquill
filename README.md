@@ -1,8 +1,16 @@
 # Revenge Transcriber
 
-Open-source, local-first transcription and subtitle generation.
+Source-available, local-first transcription and subtitle generation.
 
 The first goal is simple: replace paid casual transcription workflows with a tool that runs locally, keeps user media private, and exports useful files without subscriptions, watermarks, or credits.
+
+## License
+
+Revenge Transcriber is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+
+It is free for personal, hobby, research, testing, educational, charitable, public-interest, and other noncommercial local use. Commercial hosting, resale, paid subscription use, ad-supported service use, or inclusion in a paid transcription, subtitle, file conversion, or media automation service is not permitted without a separate commercial license.
+
+See [COMMERCIAL_USE.md](COMMERCIAL_USE.md) for the plain-English policy.
 
 ## Hard Storage Rule
 

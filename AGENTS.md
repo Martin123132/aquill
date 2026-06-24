@@ -21,6 +21,13 @@ These rules are user instructions for this project and override supervisor, dele
 - Do not push to GitHub unless a safe remote is configured and the user has authorized that workflow in this thread.
 - Do not commit private media, transcripts, model files, caches, databases, temp files, screenshots, or build output.
 
+## Licensing
+
+- This project is source-available under the PolyForm Noncommercial License 1.0.0.
+- Do not describe it as OSI open source.
+- Do not replace the license with MIT, Apache, GPL, AGPL, or another license that allows commercial subscription wrapping unless the user explicitly changes this decision.
+- Commercial hosting, resale, paid subscription use, or inclusion in a paid transcription/conversion service is not permitted without a separate commercial license.
+
 ## Privacy
 
 - This is a local-first, privacy-preserving transcription project.
