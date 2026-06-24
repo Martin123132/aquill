@@ -1,6 +1,6 @@
 # Changelog
 
-All notable local release-candidate changes for Revenge Transcriber are tracked here.
+All notable local release-candidate changes for Aquill are tracked here.
 
 ## Unreleased
 

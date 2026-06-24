@@ -71,7 +71,7 @@ $TargetIds = @($TargetIds | Where-Object { $_ -and $_ -ne $PID } | Sort-Object -
 
 if ($TargetIds.Count -eq 0) {
   if (-not $Quiet) {
-    Write-Host "No Revenge Transcriber local server processes found."
+    Write-Host "No Aquill local server processes found."
   }
   if (Test-Path -LiteralPath $PidFile) {
     Remove-Item -LiteralPath $PidFile -Force
@@ -99,5 +99,5 @@ if (Test-Path -LiteralPath $PidFile) {
 }
 
 if (-not $Quiet) {
-  Write-Host "Stopped Revenge Transcriber local servers."
+  Write-Host "Stopped Aquill local servers."
 }

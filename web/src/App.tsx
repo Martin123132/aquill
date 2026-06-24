@@ -119,7 +119,7 @@ type ArchivePreview = {
 const MODEL_OPTIONS = ["tiny", "base", "small", "medium", "large-v3"];
 const COMPUTE_OPTIONS = ["int8", "float16", "float32"];
 const DEVICE_OPTIONS = ["auto", "cpu", "cuda"];
-const SETTINGS_KEY = "revenge-transcriber-settings-v1";
+const SETTINGS_KEY = "aquill-settings-v1";
 const DEFAULT_SETTINGS: Settings = {
   version: 1,
   model: "base",
@@ -500,7 +500,7 @@ function App() {
             <Mic2 size={22} aria-hidden />
           </div>
           <div>
-            <h1>Revenge Transcriber</h1>
+            <h1>Aquill</h1>
             <p>D:\revenge-tour\transcriber</p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 # Commercial Use Policy
 
-Revenge Transcriber is source-available under the PolyForm Noncommercial License 1.0.0.
+Aquill is source-available under the PolyForm Noncommercial License 1.0.0.
 
 ## Allowed Without Asking
 
@@ -11,9 +11,9 @@ Revenge Transcriber is source-available under the PolyForm Noncommercial License
 
 ## Not Allowed Without A Separate Commercial License
 
-- Selling Revenge Transcriber.
-- Hosting Revenge Transcriber for others as a paid or ad-supported service.
-- Adding Revenge Transcriber, its backend, its UI, or substantial parts of either to a paid subscription service.
+- Selling Aquill.
+- Hosting Aquill for others as a paid or ad-supported service.
+- Adding Aquill, its backend, its UI, or substantial parts of either to a paid subscription service.
 - Offering the same or substantially similar transcription, subtitle, archive conversion, or media conversion workflow as a paid product or service using this code.
 - Bundling this project into a commercial SaaS, desktop product, hosted API, paid automation service, or paid file conversion/transcription platform.
 

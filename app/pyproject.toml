@@ -3,14 +3,14 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "revenge-transcriber"
+name = "aquill"
 version = "0.1.0"
 description = "Local-first transcription and subtitle generation."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "PolyForm Noncommercial License 1.0.0" }
 authors = [
-  { name = "Revenge Tour" }
+  { name = "Aquill contributors" }
 ]
 dependencies = [
   "faster-whisper>=1.1.0",
@@ -21,8 +21,8 @@ dependencies = [
 ]
 
 [project.scripts]
-revenge-transcribe = "revenge_transcriber.cli:main"
-revenge-transcriber-api = "revenge_transcriber.server:main"
+aquill = "revenge_transcriber.cli:main"
+aquill-api = "revenge_transcriber.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,4 +1,4 @@
-# Revenge Transcriber
+# Aquill
 
 Source-available, local-first transcription and subtitle generation.
 
@@ -6,7 +6,7 @@ The first goal is simple: replace paid casual transcription workflows with a too
 
 ## License
 
-Revenge Transcriber is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+Aquill is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
 It is free for personal, hobby, research, testing, educational, charitable, public-interest, and other noncommercial local use. Commercial hosting, resale, paid subscription use, ad-supported service use, or inclusion in a paid transcription, subtitle, file conversion, or media automation service is not permitted without a separate commercial license.
 

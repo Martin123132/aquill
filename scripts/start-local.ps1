@@ -59,7 +59,7 @@ $ExistingProjectListeners = Get-NetTCPConnection -LocalPort $ApiPort, $WebPort -
 }
 
 if ($ExistingProjectListeners) {
-  Write-Output "Stopping existing Revenge Transcriber local servers first..."
+  Write-Output "Stopping existing Aquill local servers first..."
   & $StopScript -ApiPort $ApiPort -WebPort $WebPort -Quiet
 }
 
@@ -126,7 +126,7 @@ catch {
 }
 
 Write-Output ""
-Write-Output "Revenge Transcriber is running locally."
+Write-Output "Aquill is running locally."
 Write-Output "  API: $ApiUrl"
 Write-Output "  Web: $WebUrl"
 Write-Output "  PID file: $PidFile"

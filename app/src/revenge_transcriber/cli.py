@@ -10,7 +10,7 @@ from .pipeline import TranscriptionOptions, run_transcription_job
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="revenge-transcribe",
+        prog="aquill",
         description="Local-first transcription and subtitle generation.",
     )
     parser.add_argument("input", type=Path, help="Audio or video file to transcribe.")

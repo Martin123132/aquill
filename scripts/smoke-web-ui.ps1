@@ -63,7 +63,7 @@ Write-Host ""
 
 Write-Host "1/4 Checking web page shell..."
 $Index = Invoke-Text -Uri "$WebBase/"
-Assert-Contains -Text $Index -Needle "<title>Revenge Transcriber</title>" -Label "Web index"
+Assert-Contains -Text $Index -Needle "<title>Aquill</title>" -Label "Web index"
 
 Write-Host "2/4 Checking frontend source wiring..."
 $AppSource = Invoke-Text -Uri "$WebBase/src/App.tsx"

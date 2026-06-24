@@ -35,7 +35,7 @@ from pydantic import BaseModel, Field
 from .exceptions import JobCancelled
 
 
-app = FastAPI(title="Revenge Transcriber API", version="0.1.0")
+app = FastAPI(title="Aquill API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -668,7 +668,7 @@ recover_interrupted_jobs()
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="revenge-transcriber-api")
+    parser = argparse.ArgumentParser(prog="aquill-api")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", default=8091, type=int)
     parser.add_argument("--reload", action="store_true")

@@ -1,4 +1,4 @@
-# Revenge Transcriber
+# Aquill
 
 Source-available, local-first transcription and subtitle generation. The project is designed to keep working files, model downloads, caches, temporary files, and outputs on `D:\`.
 
@@ -65,7 +65,7 @@ Generated files:
 ## CLI Options
 
 ```powershell
-revenge-transcribe <input-file> --model small --language en --device auto --compute-type int8
+aquill <input-file> --model small --language en --device auto --compute-type int8
 ```
 
 Use `tiny` or `base` for faster first tests. Larger models are slower and require more disk space.
