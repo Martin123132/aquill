@@ -123,6 +123,8 @@ D:\revenge-tour\transcriber\scripts\release-check.ps1
 
 This runs the default quality checks, confirms the PolyForm Noncommercial license files and package metadata are intact, checks that the app still shows the noncommercial license boundary, and audits executable source paths for accidental `C:\` usage.
 
+Release-candidate notes are tracked in [CHANGELOG.md](CHANGELOG.md).
+
 ## Archive Smoke Check
 
 With the API running and at least one completed local job available, verify the export/import API round-trip with:
