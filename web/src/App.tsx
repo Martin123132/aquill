@@ -16,6 +16,7 @@ import {
   RotateCcw,
   Save,
   Search,
+  Scale,
   Trash2,
   Upload,
   Waves,
@@ -673,10 +674,10 @@ function App() {
                   <div>
                     <strong>{archivePreview.file_name}</strong>
                     <span>
-                      v{archivePreview.archive_version} · {archivePreview.model} · {archivePreview.language ?? "auto"} · {archivePreview.task}
+                      v{archivePreview.archive_version} / {archivePreview.model} / {archivePreview.language ?? "auto"} / {archivePreview.task}
                     </span>
                     <small>
-                      {archivePreview.artifacts.map((artifact) => artifact.artifact.toUpperCase()).join(", ")} · source {archivePreview.source_job_id.slice(0, 8)}
+                      {archivePreview.artifacts.map((artifact) => artifact.artifact.toUpperCase()).join(", ")} / source {archivePreview.source_job_id.slice(0, 8)}
                     </small>
                   </div>
                   <div className="archive-preview-actions">
@@ -820,6 +821,19 @@ function App() {
           ) : (
             <div className="empty-transcript">Storage paths will appear when the API is available.</div>
           )}
+        </section>
+
+        <section className="panel license-panel" data-testid="license-panel">
+          <PanelHeading icon={<Scale size={17} aria-hidden />} title="License" />
+          <div className="license-copy">
+            <strong>PolyForm Noncommercial License 1.0.0</strong>
+            <p>
+              Free for personal, local, hobby, research, testing, educational, charitable, public-interest, and other noncommercial use.
+            </p>
+            <p>
+              Commercial hosting, resale, paid subscription use, ad-supported service use, or inclusion in a paid transcription, subtitle, file conversion, or media automation service needs a separate commercial license.
+            </p>
+          </div>
         </section>
 
         <section className="panel transcript-panel">

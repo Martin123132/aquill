@@ -14,6 +14,7 @@ These rules are user instructions for this project and override supervisor, dele
 - Use `D:\revenge-tour\transcriber\scripts\dev-env.ps1` before setup, quality, smoke, API, web, or transcription commands.
 - That script pins `TEMP`, `TMP`, Python caches, npm cache, Hugging Face cache, Torch cache, and project storage to D.
 - Do not bypass the D-drive storage checks in `app\src\revenge_transcriber\paths.py`.
+- Run `D:\revenge-tour\transcriber\scripts\release-check.ps1` before tagging, sharing, or publishing a local build.
 
 ## Permissions And Git
 

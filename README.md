@@ -113,6 +113,16 @@ To verify the running web UI can reach the API and exposes the storage/archive c
 D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeWebSmoke
 ```
 
+## Release Posture Check
+
+Before tagging, sharing, or publishing a local build, run:
+
+```powershell
+D:\revenge-tour\transcriber\scripts\release-check.ps1
+```
+
+This runs the default quality checks, confirms the PolyForm Noncommercial license files and package metadata are intact, checks that the app still shows the noncommercial license boundary, and audits executable source paths for accidental `C:\` usage.
+
 ## Archive Smoke Check
 
 With the API running and at least one completed local job available, verify the export/import API round-trip with:
@@ -173,3 +183,4 @@ The first vertical slice works:
 16. Show active D-drive project, input, output, model, data, temp, and cache paths in the local UI.
 17. Smoke-test the running web UI and API proxy without adding browser test dependencies.
 18. Preview archive metadata before importing restored jobs.
+19. Show the PolyForm Noncommercial license boundary in the local UI and verify release posture with one D-drive-safe script.

@@ -75,6 +75,8 @@ Assert-Contains -Text $AppSource -Needle "job-export-button" -Label "App source"
 Assert-Contains -Text $AppSource -Needle "job-search-input" -Label "App source"
 Assert-Contains -Text $AppSource -Needle "job-filter-completed" -Label "App source"
 Assert-Contains -Text $AppSource -Needle "D-drive local" -Label "App source"
+Assert-Contains -Text $AppSource -Needle "license-panel" -Label "App source"
+Assert-Contains -Text $AppSource -Needle "PolyForm Noncommercial License 1.0.0" -Label "App source"
 
 Write-Host "3/4 Checking API health and storage..."
 $Health = Invoke-Json -Uri "$ApiBase/api/health"

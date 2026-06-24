@@ -31,6 +31,12 @@ Run the default local gate before committing:
 D:\revenge-tour\transcriber\scripts\quality-all.ps1
 ```
 
+Run the release posture gate before tagging, sharing, or publishing a local build:
+
+```powershell
+D:\revenge-tour\transcriber\scripts\release-check.ps1
+```
+
 When API and web servers are already running, add the web smoke:
 
 ```powershell

@@ -764,6 +764,34 @@ button {
   padding: 16px;
 }
 
+.license-panel {
+  margin-top: 18px;
+  padding: 16px;
+}
+
+.license-copy {
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #ead3a4;
+  border-radius: 8px;
+  background: #fff9eb;
+}
+
+.license-copy strong {
+  color: #7b4d0c;
+  font-size: 14px;
+  font-weight: 780;
+}
+
+.license-copy p {
+  margin: 0;
+  color: #4f5a56;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .storage-badge {
   border: 1px solid #b8ddd5;
   border-radius: 999px;
