@@ -164,3 +164,4 @@ The first vertical slice works:
 15. Run backend, web, and optional live archive smoke checks from one D-drive-safe quality command.
 16. Show active D-drive project, input, output, model, data, temp, and cache paths in the local UI.
 17. Smoke-test the running web UI and API proxy without adding browser test dependencies.
+18. Preview archive metadata before importing restored jobs.

@@ -125,6 +125,38 @@ def import_job_archive(archive_path: Path, imported_at: str) -> JobRecord:
     )
 
 
+def preview_job_archive(archive_path: Path) -> dict[str, object]:
+    archive_path = archive_path.resolve()
+    try:
+        with zipfile.ZipFile(archive_path) as archive:
+            manifest = read_manifest(archive)
+            original_job = manifest_job(manifest)
+            included = manifest_artifacts(manifest)
+            validate_archive_members(archive)
+            for entry in included:
+                artifact = str(entry.get("artifact") or "")
+                file_name_in_archive = str(entry.get("file_name") or "")
+                expected_name = ARCHIVE_FILES.get(artifact)
+                if expected_name is None or file_name_in_archive != expected_name:
+                    raise ArchiveImportError(f"Unsupported artifact entry: {artifact or file_name_in_archive}")
+                if expected_name not in archive.namelist():
+                    raise ArchiveImportError(f"Archive is missing artifact: {expected_name}")
+    except zipfile.BadZipFile as exc:
+        raise ArchiveImportError("Archive is not a valid ZIP file.") from exc
+    except (KeyError, json.JSONDecodeError, TypeError) as exc:
+        raise ArchiveImportError("Archive manifest is missing or malformed.") from exc
+
+    return {
+        "archive_version": manifest["archive_version"],
+        "source_job_id": str(original_job.get("id") or "unknown"),
+        "file_name": safe_file_name(str(original_job.get("file_name") or "imported-media")),
+        "model": str(original_job.get("model") or "unknown"),
+        "language": optional_str(original_job.get("language")),
+        "task": str(original_job.get("task") or "transcribe"),
+        "artifacts": included,
+    }
+
+
 def read_manifest(archive: zipfile.ZipFile) -> dict[str, object]:
     manifest = json.loads(archive.read("manifest.json").decode("utf-8"))
     if not isinstance(manifest, dict):

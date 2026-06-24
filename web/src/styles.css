@@ -560,6 +560,43 @@ button {
   border-color: var(--line);
 }
 
+.archive-preview {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #b8ddd5;
+  border-radius: 8px;
+  background: #f2faf7;
+}
+
+.archive-preview strong,
+.archive-preview span,
+.archive-preview small {
+  display: block;
+}
+
+.archive-preview strong {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 760;
+  overflow-wrap: anywhere;
+}
+
+.archive-preview span,
+.archive-preview small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.archive-preview-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 8px;
+}
+
 .status-panel,
 .transcript-panel {
   padding: 16px;
@@ -1018,6 +1055,10 @@ button {
   .transcript-actions,
   .secondary-button {
     width: 100%;
+  }
+
+  .archive-preview-actions {
+    grid-template-columns: 1fr;
   }
 
   .transcript-row {

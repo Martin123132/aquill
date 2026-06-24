@@ -99,6 +99,22 @@ type Transcript = {
   segments: TranscriptSegment[];
 };
 
+type ArchivePreviewArtifact = {
+  artifact: string;
+  file_name: string;
+  size_bytes: number;
+};
+
+type ArchivePreview = {
+  archive_version: number;
+  source_job_id: string;
+  file_name: string;
+  model: string;
+  language: string | null;
+  task: string;
+  artifacts: ArchivePreviewArtifact[];
+};
+
 const MODEL_OPTIONS = ["tiny", "base", "small", "medium", "large-v3"];
 const COMPUTE_OPTIONS = ["int8", "float16", "float32"];
 const DEVICE_OPTIONS = ["auto", "cpu", "cuda"];
@@ -152,6 +168,9 @@ function App() {
   const [isSavingTranscript, setIsSavingTranscript] = useState(false);
   const [isRefreshingModels, setIsRefreshingModels] = useState(false);
   const [isImportingArchive, setIsImportingArchive] = useState(false);
+  const [isPreviewingArchive, setIsPreviewingArchive] = useState(false);
+  const [pendingArchiveFile, setPendingArchiveFile] = useState<File | null>(null);
+  const [archivePreview, setArchivePreview] = useState<ArchivePreview | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [archiveStatus, setArchiveStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -361,6 +380,48 @@ function App() {
     setSelectedFiles((files) => files.filter((file) => file !== fileToRemove));
   }
 
+  async function previewArchive(file: File | null) {
+    if (!file) return;
+    if (!isZipArchive(file)) {
+      setPendingArchiveFile(null);
+      setArchivePreview(null);
+      setArchiveStatus(null);
+      setError("Choose a ZIP archive exported by this app.");
+      return;
+    }
+    setIsPreviewingArchive(true);
+    setPendingArchiveFile(file);
+    setArchivePreview(null);
+    setArchiveStatus(`Reading ${file.name}`);
+    setError(null);
+
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const response = await fetch("/api/jobs/import/preview", { method: "POST", body });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail ?? "Archive preview failed.");
+      }
+      const payload = (await response.json()) as { preview: ArchivePreview };
+      setArchivePreview(payload.preview);
+      setArchiveStatus("Archive ready to import");
+    } catch (caught) {
+      setPendingArchiveFile(null);
+      setArchivePreview(null);
+      setArchiveStatus(null);
+      setError(caught instanceof Error ? caught.message : "Archive preview failed.");
+    } finally {
+      setIsPreviewingArchive(false);
+    }
+  }
+
+  function clearArchivePreview() {
+    setPendingArchiveFile(null);
+    setArchivePreview(null);
+    setArchiveStatus(null);
+  }
+
   async function importArchive(file: File | null) {
     if (!file) return;
     if (!isZipArchive(file)) {
@@ -385,6 +446,8 @@ function App() {
       setActiveJobId(payload.job.id);
       const artifactCount = Object.keys(payload.job.artifacts).length;
       setArchiveStatus(`Imported ${artifactCount} artifact${artifactCount === 1 ? "" : "s"}`);
+      setPendingArchiveFile(null);
+      setArchivePreview(null);
       await refreshJobs();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Archive import failed.");
@@ -590,21 +653,48 @@ function App() {
             </button>
 
             <div className="archive-tools">
-              <label className={`secondary-button archive-import ${isImportingArchive ? "disabled" : ""}`} data-testid="archive-import-label">
-                {isImportingArchive ? <Loader2 className="spin" size={16} aria-hidden /> : <Upload size={16} aria-hidden />}
-                Import ZIP
+              <label className={`secondary-button archive-import ${isImportingArchive || isPreviewingArchive ? "disabled" : ""}`} data-testid="archive-import-label">
+                {isPreviewingArchive ? <Loader2 className="spin" size={16} aria-hidden /> : <Upload size={16} aria-hidden />}
+                Choose ZIP
                 <input
                   data-testid="archive-import-input"
                   type="file"
                   accept=".zip,application/zip"
-                  disabled={isImportingArchive}
+                  disabled={isImportingArchive || isPreviewingArchive}
                   onChange={(event) => {
-                    void importArchive(event.target.files?.[0] ?? null);
+                    void previewArchive(event.target.files?.[0] ?? null);
                     event.currentTarget.value = "";
                   }}
                 />
               </label>
               {archiveStatus ? <span className="save-state">{archiveStatus}</span> : null}
+              {archivePreview && pendingArchiveFile ? (
+                <div className="archive-preview" data-testid="archive-preview">
+                  <div>
+                    <strong>{archivePreview.file_name}</strong>
+                    <span>
+                      v{archivePreview.archive_version} · {archivePreview.model} · {archivePreview.language ?? "auto"} · {archivePreview.task}
+                    </span>
+                    <small>
+                      {archivePreview.artifacts.map((artifact) => artifact.artifact.toUpperCase()).join(", ")} · source {archivePreview.source_job_id.slice(0, 8)}
+                    </small>
+                  </div>
+                  <div className="archive-preview-actions">
+                    <button
+                      className="secondary-button"
+                      type="button"
+                      disabled={isImportingArchive}
+                      onClick={() => void importArchive(pendingArchiveFile)}
+                    >
+                      {isImportingArchive ? <Loader2 className="spin" size={16} aria-hidden /> : <Upload size={16} aria-hidden />}
+                      Import
+                    </button>
+                    <button className="ghost-button" type="button" disabled={isImportingArchive} onClick={clearArchivePreview}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </form>
 

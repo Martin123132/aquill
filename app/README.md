@@ -90,6 +90,7 @@ Endpoints:
 - `PUT /api/jobs/{job_id}/transcript`
 - `GET /api/jobs/{job_id}/download/{txt|json|srt|vtt|audio}`
 - `GET /api/jobs/{job_id}/archive`
+- `POST /api/jobs/import/preview`
 - `POST /api/jobs/import`
 - `GET /api/models`
 - `GET /api/system/storage`
@@ -104,7 +105,8 @@ Interrupted active jobs are marked failed on API startup so the queue does not g
 Cancel requests work for queued jobs and running jobs. Running jobs stop at safe checkpoints during FFmpeg extraction, Whisper segment iteration, or before export writing, and temporary audio is cleaned up.
 Completed jobs can be exported as ZIP archives containing a `manifest.json` plus available transcript, subtitle, JSON, and optional kept audio artifacts.
 Archives can be imported back into local D-drive storage with `POST /api/jobs/import`. Import validates the archive manifest version, rejects unsafe ZIP member paths such as traversal entries, restores only known artifact filenames, and creates a new completed local job rather than overwriting an existing one.
-The local web UI exposes the same archive flow with an Export action on completed jobs and an Import ZIP control in the intake panel.
+The import preview endpoint validates an archive and returns source job metadata plus artifact names without restoring files.
+The local web UI exposes the same archive flow with an Export action on completed jobs and an Import ZIP preview/import control in the intake panel.
 The storage endpoint reports the active project, input, output, model, data, temp, and cache directories so the UI can show that runtime storage is pinned to `D:\`.
 
 ## Requirements

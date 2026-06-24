@@ -21,7 +21,7 @@ if TEST_ROOT.exists():
     shutil.rmtree(TEST_ROOT)
 
 from revenge_transcriber import db, server  # noqa: E402
-from revenge_transcriber.archive import ArchiveImportError, build_job_archive, import_job_archive  # noqa: E402
+from revenge_transcriber.archive import ArchiveImportError, build_job_archive, import_job_archive, preview_job_archive  # noqa: E402
 from revenge_transcriber.exceptions import JobCancelled  # noqa: E402
 from revenge_transcriber.paths import tmp_dir  # noqa: E402
 from revenge_transcriber.pipeline import TranscriptionOptions, run_transcription_job  # noqa: E402
@@ -301,6 +301,32 @@ class BackendQualityTests(unittest.TestCase):
         self.assertTrue(str(Path(imported.input_path).resolve()).startswith(str(TEST_ROOT)))
         self.assertEqual((Path(imported.output_dir) / "transcript.txt").read_text(encoding="utf-8"), "croeso\n")
         self.assertEqual((Path(imported.output_dir) / "audio.wav").read_bytes(), b"fake wav")
+
+    def test_preview_archive_reports_metadata_without_restoring(self) -> None:
+        before = {path.resolve() for path in server.outputs_dir().glob("*")}
+        original = self._insert_job(f"test-preview-source-{uuid.uuid4().hex}", "completed")
+        original.file_name = "preview-meeting.mp3"
+        original.model = "base"
+        original.language = "en"
+        original.task = "translate"
+        output_dir = Path(original.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "transcript.txt").write_text("hello\n", encoding="utf-8")
+        (output_dir / "transcript.json").write_text('{"text": "hello"}\n', encoding="utf-8")
+
+        archive_path = build_job_archive(original)
+        self.addCleanup(archive_path.unlink, missing_ok=True)
+        preview = preview_job_archive(archive_path)
+
+        after = {path.resolve() for path in server.outputs_dir().glob("*")}
+        self.assertEqual(after, before | {output_dir.resolve()})
+        self.assertEqual(preview["archive_version"], 1)
+        self.assertEqual(preview["source_job_id"], original.id)
+        self.assertEqual(preview["file_name"], "preview-meeting.mp3")
+        self.assertEqual(preview["model"], "base")
+        self.assertEqual(preview["language"], "en")
+        self.assertEqual(preview["task"], "translate")
+        self.assertEqual([entry["artifact"] for entry in preview["artifacts"]], ["txt", "json"])
 
     def test_import_archive_rejects_path_traversal_members(self) -> None:
         archive_path = tmp_dir() / f"path-traversal-{uuid.uuid4().hex}.zip"

@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
-from .archive import ArchiveImportError, build_job_archive, import_job_archive
+from .archive import ArchiveImportError, build_job_archive, import_job_archive, preview_job_archive
 from .db import delete_job as db_delete_job
 from .db import get_job as db_get_job
 from .db import initialise_database, insert_job, list_jobs as db_list_jobs
@@ -346,6 +346,19 @@ async def import_archive(file: UploadFile = File(...)) -> dict[str, object]:
         job = import_job_archive(upload_path, timestamp())
         insert_job(job)
         return {"job": public_job(job)}
+    except ArchiveImportError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    finally:
+        upload_path.unlink(missing_ok=True)
+
+
+@app.post("/api/jobs/import/preview")
+async def preview_archive_import(file: UploadFile = File(...)) -> dict[str, object]:
+    archive_name = safe_file_name(file.filename or "archive.zip")
+    upload_path = inputs_dir() / f"preview-{uuid.uuid4().hex}-{archive_name}"
+    try:
+        await save_upload(file, upload_path)
+        return {"preview": preview_job_archive(upload_path)}
     except ArchiveImportError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     finally:

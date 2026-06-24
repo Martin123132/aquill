@@ -68,7 +68,9 @@ Assert-Contains -Text $Index -Needle "<title>Revenge Transcriber</title>" -Label
 Write-Host "2/4 Checking frontend source wiring..."
 $AppSource = Invoke-Text -Uri "$WebBase/src/App.tsx"
 Assert-Contains -Text $AppSource -Needle "/api/system/storage" -Label "App source"
+Assert-Contains -Text $AppSource -Needle "/api/jobs/import/preview" -Label "App source"
 Assert-Contains -Text $AppSource -Needle "archive-import-input" -Label "App source"
+Assert-Contains -Text $AppSource -Needle "archive-preview" -Label "App source"
 Assert-Contains -Text $AppSource -Needle "job-export-button" -Label "App source"
 Assert-Contains -Text $AppSource -Needle "D-drive local" -Label "App source"
 
