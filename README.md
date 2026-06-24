@@ -55,21 +55,35 @@ Install web dependencies:
 D:\revenge-tour\transcriber\scripts\setup-web.ps1
 ```
 
-Start the API:
+Start the local API and web UI together:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\serve-api.ps1 --host 127.0.0.1 --port 8091
-```
-
-Start the web UI:
-
-```powershell
-D:\revenge-tour\transcriber\scripts\serve-web.ps1
+D:\revenge-tour\transcriber\scripts\start-local.ps1
 ```
 
 Open:
 
 ```text
+http://127.0.0.1:5190/
+```
+
+Stop both local servers:
+
+```powershell
+D:\revenge-tour\transcriber\scripts\stop-local.ps1
+```
+
+The lower-level API and web wrappers are still available for separate debugging:
+
+```powershell
+D:\revenge-tour\transcriber\scripts\serve-api.ps1 --host 127.0.0.1 --port 8091
+D:\revenge-tour\transcriber\scripts\serve-web.ps1
+```
+
+Default URLs:
+
+```text
+http://127.0.0.1:8091/api/health
 http://127.0.0.1:5190/
 ```
 
@@ -186,3 +200,4 @@ The first vertical slice works:
 17. Smoke-test the running web UI and API proxy without adding browser test dependencies.
 18. Preview archive metadata before importing restored jobs.
 19. Show the PolyForm Noncommercial license boundary in the local UI and verify release posture with one D-drive-safe script.
+20. Start and stop the local API/web pair with D-drive-safe wrapper scripts and logs.

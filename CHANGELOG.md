@@ -7,6 +7,8 @@ All notable local release-candidate changes for Revenge Transcriber are tracked 
 - Keep the project source-available under the PolyForm Noncommercial License 1.0.0.
 - Keep generated media, transcripts, caches, databases, temp files, model files, and build artifacts under `D:\revenge-tour\transcriber`.
 - Keep release candidates gated by `D:\revenge-tour\transcriber\scripts\release-check.ps1`.
+- Keep local API/web startup and cleanup behind `D:\revenge-tour\transcriber\scripts\start-local.ps1` and `D:\revenge-tour\transcriber\scripts\stop-local.ps1`.
+- Harden cancellation-state backend tests against valid fast-worker timing.
 
 ## 0.1.0-local - 2026-06-24
 
@@ -21,6 +23,7 @@ All notable local release-candidate changes for Revenge Transcriber are tracked 
 - Queue filtering and search.
 - Visible UI license panel for the PolyForm Noncommercial License 1.0.0.
 - Backend, web, release posture, and optional live smoke quality scripts.
+- One-command local API/web start and stop scripts with logs under `D:\revenge-tour\transcriber\tmp`.
 
 ### Verified
 

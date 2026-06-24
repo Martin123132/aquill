@@ -19,9 +19,11 @@ D:\revenge-tour\transcriber\scripts\setup-web.ps1
 Start local services when needed:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\serve-api.ps1 --host 127.0.0.1 --port 8091
-D:\revenge-tour\transcriber\scripts\serve-web.ps1
+D:\revenge-tour\transcriber\scripts\start-local.ps1
+D:\revenge-tour\transcriber\scripts\stop-local.ps1
 ```
+
+Use `serve-api.ps1` and `serve-web.ps1` directly only when debugging one side of the stack.
 
 ## Quality Gates
 

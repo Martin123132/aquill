@@ -181,7 +181,12 @@ class BackendQualityTests(unittest.TestCase):
             self.assertTrue(ready.wait(timeout=5))
             response = server.cancel_job(job_id)["job"]
             self.assertEqual(response["status"], "cancelled")
-            self.assertIn("Cancellation requested", response["progress_message"])
+            progress_message = response["progress_message"] or ""
+            self.assertTrue(
+                progress_message.startswith("Cancellation requested")
+                or progress_message == "Fake cancellation checkpoint.",
+                progress_message,
+            )
 
             final = self._wait_for_final(job_id)
             self.assertEqual(final.progress_message, "Fake cancellation checkpoint.")
