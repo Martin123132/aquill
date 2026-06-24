@@ -72,6 +72,8 @@ Assert-Contains -Text $AppSource -Needle "/api/jobs/import/preview" -Label "App 
 Assert-Contains -Text $AppSource -Needle "archive-import-input" -Label "App source"
 Assert-Contains -Text $AppSource -Needle "archive-preview" -Label "App source"
 Assert-Contains -Text $AppSource -Needle "job-export-button" -Label "App source"
+Assert-Contains -Text $AppSource -Needle "job-search-input" -Label "App source"
+Assert-Contains -Text $AppSource -Needle "job-filter-completed" -Label "App source"
 Assert-Contains -Text $AppSource -Needle "D-drive local" -Label "App source"
 
 Write-Host "3/4 Checking API health and storage..."
