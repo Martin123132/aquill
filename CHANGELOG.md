@@ -9,6 +9,7 @@ All notable local release-candidate changes for Aquill are tracked here.
 - Keep release candidates gated by `D:\revenge-tour\transcriber\scripts\release-check.ps1`.
 - Keep local API/web startup and cleanup behind `D:\revenge-tour\transcriber\scripts\start-local.ps1` and `D:\revenge-tour\transcriber\scripts\stop-local.ps1`.
 - Harden cancellation-state backend tests against valid fast-worker timing.
+- Add public contact details for collaboration, product, and licensing enquiries.
 
 ## 0.1.0-local - 2026-06-24
 

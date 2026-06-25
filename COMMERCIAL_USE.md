@@ -24,3 +24,7 @@ The project is meant to stay free for normal people running local tools on their
 ## Questions
 
 If you want commercial rights, you need a separate written commercial license from the licensor.
+
+For collaboration, information on existing products, or other enquiries, contact:
+
+Glyn: [glyn@twohandsnetwork.co.uk](mailto:glyn@twohandsnetwork.co.uk)

@@ -12,6 +12,10 @@ It is free for personal, hobby, research, testing, educational, charitable, publ
 
 See [COMMERCIAL_USE.md](COMMERCIAL_USE.md) for the plain-English policy.
 
+## Contact
+
+For collaboration, information on existing products, commercial licensing, or other enquiries, see [CONTACT.md](CONTACT.md).
+
 ## Hard Storage Rule
 
 This project is configured for `D:\revenge-tour\transcriber`.
