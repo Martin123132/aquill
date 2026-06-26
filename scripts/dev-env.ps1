@@ -1,6 +1,10 @@
 $ErrorActionPreference = "Stop"
 
-$ProjectRoot = "D:\revenge-tour\transcriber"
+$ProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..")).Path
+if (-not $ProjectRoot.StartsWith("D:\", [System.StringComparison]::OrdinalIgnoreCase)) {
+  throw "Aquill must be run from a D-drive checkout. Current project root: $ProjectRoot"
+}
+
 $AppRoot = Join-Path $ProjectRoot "app"
 $CacheRoot = Join-Path $ProjectRoot "cache"
 $TmpRoot = Join-Path $ProjectRoot "tmp"

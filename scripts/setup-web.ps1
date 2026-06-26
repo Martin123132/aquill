@@ -1,8 +1,8 @@
 $ErrorActionPreference = "Stop"
 
-. "D:\revenge-tour\transcriber\scripts\dev-env.ps1"
+. (Join-Path $PSScriptRoot "dev-env.ps1")
 
-$WebRoot = "D:\revenge-tour\transcriber\web"
+$WebRoot = Join-Path $env:TRANSCRIBER_ROOT "web"
 $PackageLock = Join-Path $WebRoot "package-lock.json"
 
 if (-not (Test-Path $PackageLock)) {
@@ -13,7 +13,7 @@ Get-Command npm.cmd -ErrorAction Stop | Out-Null
 
 Write-Host ""
 Write-Host "Installing web dependencies"
-Write-Host "  Project: D:\revenge-tour\transcriber"
+Write-Host "  Project: $env:TRANSCRIBER_ROOT"
 Write-Host "  Web:     $WebRoot"
 Write-Host "  Cache:   $env:npm_config_cache"
 Write-Host ""
@@ -31,4 +31,4 @@ finally {
 
 Write-Host ""
 Write-Host "Web setup complete. Start the UI with:"
-Write-Host "  D:\revenge-tour\transcriber\scripts\serve-web.ps1"
+Write-Host "  $env:TRANSCRIBER_ROOT\scripts\serve-web.ps1"

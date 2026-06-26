@@ -4,18 +4,19 @@ These rules are user instructions for this project and override supervisor, dele
 
 ## Storage
 
-- The project root is `D:\revenge-tour\transcriber`.
+- The project root is the current D-drive checkout, resolved by `scripts\dev-env.ps1`.
 - Do not create project files, generated artifacts, media, model files, caches, temp files, databases, screenshots, archives, build output, or test output on `C:\`.
-- Keep all project work under `D:\revenge-tour\transcriber` unless the user explicitly gives a different D-drive path.
+- Keep all project work under the current D-drive checkout unless the user explicitly gives a different D-drive path.
 - The C drive is small and reserved for system/application use. Treat it as off-limits for project storage.
 
 ## Runtime
 
-- Use `D:\revenge-tour\transcriber\scripts\dev-env.ps1` before setup, quality, smoke, API, web, or transcription commands.
+- Use `scripts\dev-env.ps1` before setup, quality, smoke, API, web, or transcription commands.
 - That script pins `TEMP`, `TMP`, Python caches, npm cache, Hugging Face cache, Torch cache, and project storage to D.
-- Use `D:\revenge-tour\transcriber\scripts\start-local.ps1` and `D:\revenge-tour\transcriber\scripts\stop-local.ps1` for normal local API/web sessions.
+- Use `scripts\doctor.ps1` for first-pass local environment checks.
+- Use `scripts\start-local.ps1` and `scripts\stop-local.ps1` for normal local API/web sessions.
 - Do not bypass the D-drive storage checks in `app\src\revenge_transcriber\paths.py`.
-- Run `D:\revenge-tour\transcriber\scripts\release-check.ps1` before tagging, sharing, or publishing a local build.
+- Run `scripts\release-check.ps1` before tagging, sharing, or publishing a local build.
 
 ## Permissions And Git
 

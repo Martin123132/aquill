@@ -5,9 +5,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-. "D:\revenge-tour\transcriber\scripts\dev-env.ps1"
+. (Join-Path $PSScriptRoot "dev-env.ps1")
 
-$ProjectRoot = "D:\revenge-tour\transcriber"
+$ProjectRoot = $env:TRANSCRIBER_ROOT
 
 function Invoke-Text {
   param([string]$Uri)

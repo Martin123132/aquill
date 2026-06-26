@@ -1,14 +1,14 @@
 $ErrorActionPreference = "Stop"
 
-. "D:\revenge-tour\transcriber\scripts\dev-env.ps1"
+. (Join-Path $PSScriptRoot "dev-env.ps1")
 
-$ProjectRoot = "D:\revenge-tour\transcriber"
+$ProjectRoot = $env:TRANSCRIBER_ROOT
 $AppSource = Join-Path $ProjectRoot "app\src\revenge_transcriber"
 $AppTests = Join-Path $ProjectRoot "app\tests"
 $VenvPython = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 
 if (-not (Test-Path $VenvPython)) {
-  throw "Virtual environment not found. Run D:\revenge-tour\transcriber\scripts\setup.ps1 first."
+  throw "Virtual environment not found. Run $ProjectRoot\scripts\setup.ps1 first."
 }
 
 Write-Host ""

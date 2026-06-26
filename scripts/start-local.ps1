@@ -6,9 +6,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-. "D:\revenge-tour\transcriber\scripts\dev-env.ps1"
+. (Join-Path $PSScriptRoot "dev-env.ps1")
 
-$ProjectRoot = "D:\revenge-tour\transcriber"
+$ProjectRoot = $env:TRANSCRIBER_ROOT
 $TmpRoot = Join-Path $ProjectRoot "tmp"
 $PidFile = Join-Path $TmpRoot "local-server-pids.json"
 $StopScript = Join-Path $ProjectRoot "scripts\stop-local.ps1"
@@ -137,4 +137,4 @@ Write-Output "    $WebOut"
 Write-Output "    $WebErr"
 Write-Output ""
 Write-Output "Stop with:"
-Write-Output "  D:\revenge-tour\transcriber\scripts\stop-local.ps1"
+Write-Output "  $ProjectRoot\scripts\stop-local.ps1"

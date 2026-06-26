@@ -8,9 +8,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-. "D:\revenge-tour\transcriber\scripts\dev-env.ps1"
+. (Join-Path $PSScriptRoot "dev-env.ps1")
 
-$ProjectRoot = "D:\revenge-tour\transcriber"
+$ProjectRoot = $env:TRANSCRIBER_ROOT
 $BackendQuality = Join-Path $ProjectRoot "scripts\quality-backend.ps1"
 $WebQuality = Join-Path $ProjectRoot "scripts\quality-web.ps1"
 $WebSmoke = Join-Path $ProjectRoot "scripts\smoke-web-ui.ps1"
@@ -43,7 +43,7 @@ if ($IncludeWebSmoke) {
 else {
   Write-Host ""
   Write-Host "Web UI smoke skipped. To include it, start API and web servers, then run:"
-  Write-Host "  D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeWebSmoke"
+  Write-Host "  $ProjectRoot\scripts\quality-all.ps1 -IncludeWebSmoke"
 }
 
 if ($IncludeArchiveSmoke) {
@@ -59,7 +59,7 @@ if ($IncludeArchiveSmoke) {
 else {
   Write-Host ""
   Write-Host "Archive smoke skipped. To include it, start the API with a completed job, then run:"
-  Write-Host "  D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeArchiveSmoke"
+  Write-Host "  $ProjectRoot\scripts\quality-all.ps1 -IncludeArchiveSmoke"
 }
 
 Write-Host ""

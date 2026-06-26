@@ -6,9 +6,9 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-. "D:\revenge-tour\transcriber\scripts\dev-env.ps1"
+. (Join-Path $PSScriptRoot "dev-env.ps1")
 
-$ProjectRoot = "D:\revenge-tour\transcriber"
+$ProjectRoot = $env:TRANSCRIBER_ROOT
 $PidFile = Join-Path $ProjectRoot "tmp\local-server-pids.json"
 
 function Get-RecordedProcessIds {

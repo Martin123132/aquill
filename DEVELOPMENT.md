@@ -4,23 +4,24 @@ Use this checklist before and after local changes.
 
 ## Storage Rules
 
-- Keep project work under `D:\revenge-tour\transcriber`.
+- Keep project work under the current D-drive checkout.
 - Do not create project media, outputs, archives, screenshots, traces, caches, databases, model files, or build artifacts on `C:\`.
-- Run project scripts through `D:\revenge-tour\transcriber\scripts\dev-env.ps1` or one of the wrapper scripts that imports it.
+- Run project scripts through `scripts\dev-env.ps1` or one of the wrapper scripts that imports it.
 - Do not bypass the D-drive checks in `app\src\revenge_transcriber\paths.py`.
 
 ## Local Setup
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\setup.ps1
-D:\revenge-tour\transcriber\scripts\setup-web.ps1
+.\scripts\doctor.ps1
+.\scripts\setup.ps1
+.\scripts\setup-web.ps1
 ```
 
 Start local services when needed:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\start-local.ps1
-D:\revenge-tour\transcriber\scripts\stop-local.ps1
+.\scripts\start-local.ps1
+.\scripts\stop-local.ps1
 ```
 
 Use `serve-api.ps1` and `serve-web.ps1` directly only when debugging one side of the stack.
@@ -30,25 +31,25 @@ Use `serve-api.ps1` and `serve-web.ps1` directly only when debugging one side of
 Run the default local gate before committing:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\quality-all.ps1
+.\scripts\quality-all.ps1
 ```
 
 Run the release posture gate before tagging, sharing, or publishing a local build:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\release-check.ps1
+.\scripts\release-check.ps1
 ```
 
 When API and web servers are already running, add the web smoke:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeWebSmoke
+.\scripts\quality-all.ps1 -IncludeWebSmoke
 ```
 
 When the API is running and at least one completed local job exists, add archive smoke:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeArchiveSmoke
+.\scripts\quality-all.ps1 -IncludeArchiveSmoke
 ```
 
 ## Git Hygiene
@@ -58,8 +59,8 @@ D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeArchiveSmoke
 - Check staged files before each commit:
 
 ```powershell
-git -C D:\revenge-tour\transcriber status --short
-git -C D:\revenge-tour\transcriber diff --cached --stat
+git status --short
+git diff --cached --stat
 ```
 
 - Do not push unless a safe remote is configured and the user has authorized publishing from this thread.

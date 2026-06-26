@@ -5,11 +5,11 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-. "D:\revenge-tour\transcriber\scripts\dev-env.ps1"
+. (Join-Path $PSScriptRoot "dev-env.ps1")
 
 Add-Type -AssemblyName System.Net.Http
 
-$ProjectRoot = "D:\revenge-tour\transcriber"
+$ProjectRoot = $env:TRANSCRIBER_ROOT
 $TmpRoot = Join-Path $ProjectRoot "tmp"
 $ArchivePath = Join-Path $TmpRoot ("archive-roundtrip-{0}.zip" -f [guid]::NewGuid().ToString("N"))
 $ImportedJobId = $null

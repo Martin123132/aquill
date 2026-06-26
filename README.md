@@ -1,8 +1,27 @@
 # Aquill
 
-Source-available, local-first transcription and subtitle generation.
+Local transcription without subscriptions.
 
-The first goal is simple: replace paid casual transcription workflows with a tool that runs locally, keeps user media private, and exports useful files without subscriptions, watermarks, or credits.
+Aquill is a source-available, local-first transcription and subtitle workbench. It is built for people who want to transcribe audio or video on their own machine, keep media private, and export useful files without credits, watermarks, or subscription gates.
+
+## What It Does
+
+- Runs a local FastAPI backend and React/Vite workbench.
+- Queues audio or video files for local transcription with `faster-whisper`.
+- Exports TXT, JSON, SRT, and VTT.
+- Lets you edit transcript segments and regenerate exports.
+- Shows local model, storage, progress, and job state.
+- Exports completed jobs as ZIP archives.
+- Previews and imports Aquill job archives back into local storage.
+- Keeps media, transcripts, databases, models, temp files, and caches on `D:\`.
+
+## Not Yet
+
+- No packaged installer yet.
+- No cloud transcription or hosted SaaS mode.
+- No speaker diarization UI yet.
+- No full release tag yet.
+- No promise that huge media jobs are laptop-light.
 
 ## License
 
@@ -16,53 +35,30 @@ See [COMMERCIAL_USE.md](COMMERCIAL_USE.md) for the plain-English policy.
 
 For collaboration, information on existing products, commercial licensing, or other enquiries, see [CONTACT.md](CONTACT.md).
 
-## Hard Storage Rule
+## Security And Privacy
 
-This project is configured for `D:\revenge-tour\transcriber`.
+Aquill is local-first by design. Keep private media, transcripts, databases, archives, screenshots, and generated outputs out of public repos and cloud services. See [SECURITY.md](SECURITY.md) for reporting and privacy guidance.
 
-Generated files, model downloads, temp files, caches, test inputs, and outputs should stay on `D:\`.
+## Storage Rule
 
-Supervisor, delegation, or helper-agent instructions do not override this rule. Do not create project artifacts on `C:\`; this laptop's C drive is not project storage.
+Aquill is designed for a D-drive checkout. Clone it somewhere on `D:\`, for example:
+
+```powershell
+git clone https://github.com/Martin123132/aquill.git D:\Projects\aquill
+cd D:\Projects\aquill
+```
+
+The scripts resolve the project root from their own location, then pin generated media, transcripts, databases, model downloads, caches, and temp files under that D-drive checkout. Do not use this project from a small system drive.
 
 ## Quick Start
 
-Set up the backend CLI/API:
+From your D-drive Aquill checkout:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\setup.ps1
-```
-
-Put local media under `D:\revenge-tour\transcriber\inputs`, then run:
-
-```powershell
-D:\revenge-tour\transcriber\scripts\transcribe.ps1 D:\revenge-tour\transcriber\inputs\sample.mp4 --model tiny --language en
-```
-
-The CLI writes a timestamped job folder under:
-
-```text
-D:\revenge-tour\transcriber\outputs
-```
-
-Each job produces:
-
-- `transcript.txt`
-- `transcript.json`
-- `subtitles.srt`
-- `subtitles.vtt`
-
-## Local Web App
-
-Install web dependencies:
-
-```powershell
-D:\revenge-tour\transcriber\scripts\setup-web.ps1
-```
-
-Start the local API and web UI together:
-
-```powershell
-D:\revenge-tour\transcriber\scripts\start-local.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\doctor.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-web.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-local.ps1
 ```
 
 Open:
@@ -74,84 +70,51 @@ http://127.0.0.1:5190/
 Stop both local servers:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\stop-local.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 ```
 
-The lower-level API and web wrappers are still available for separate debugging:
+## CLI Use
+
+Put local media under `inputs\`, then run:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\serve-api.ps1 --host 127.0.0.1 --port 8091
-D:\revenge-tour\transcriber\scripts\serve-web.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\transcribe.ps1 .\inputs\sample.mp4 --model tiny --language en
 ```
 
-Default URLs:
+Each job writes a timestamped output folder under `outputs\` with:
 
-```text
-http://127.0.0.1:8091/api/health
-http://127.0.0.1:5190/
-```
+- `transcript.txt`
+- `transcript.json`
+- `subtitles.srt`
+- `subtitles.vtt`
 
-Completed jobs can be exported from the active job actions. ZIP archives can be imported from the intake panel and are restored as completed local jobs.
+## Quality Checks
 
-## Backend Quality Check
-
-Run the compile checks and fake-driven backend tests with:
+Run the default backend and web checks:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\quality-backend.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\quality-all.ps1
 ```
 
-## Web Quality Check
-
-After `setup-web.ps1`, run the TypeScript and Vite production build check with:
+Run the live web smoke after `start-local.ps1`:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\quality-web.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\quality-all.ps1 -IncludeWebSmoke
 ```
 
-This creates ignored build artifacts under `D:\revenge-tour\transcriber\web\dist`.
-
-## Full Local Quality Check
-
-Run backend and web quality checks together with:
+Run release posture checks before tagging or sharing a local build:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\quality-all.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\release-check.ps1
 ```
 
-To also verify the live archive export/import round-trip, start the API first, ensure at least one completed local job exists, then run:
+With the API running and at least one completed local job available, verify archive export/import round-trip:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeArchiveSmoke
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\smoke-archive-roundtrip.ps1
 ```
-
-To verify the running web UI can reach the API and exposes the storage/archive controls, start both servers, then run:
-
-```powershell
-D:\revenge-tour\transcriber\scripts\quality-all.ps1 -IncludeWebSmoke
-```
-
-## Release Posture Check
-
-Before tagging, sharing, or publishing a local build, run:
-
-```powershell
-D:\revenge-tour\transcriber\scripts\release-check.ps1
-```
-
-This runs the default quality checks, confirms the PolyForm Noncommercial license files and package metadata are intact, checks that the app still shows the noncommercial license boundary, and audits executable source paths for accidental `C:\` usage.
 
 Release-candidate notes are tracked in [CHANGELOG.md](CHANGELOG.md).
-
-## Archive Smoke Check
-
-With the API running and at least one completed local job available, verify the export/import API round-trip with:
-
-```powershell
-D:\revenge-tour\transcriber\scripts\smoke-archive-roundtrip.ps1
-```
-
-The smoke check exports a completed job archive, imports it through `POST /api/jobs/import`, confirms the restored job exposes artifacts, then deletes only the imported smoke job.
 
 ## Local Artifacts
 
@@ -165,14 +128,14 @@ The following directories are intentionally ignored and may contain private or l
 - `tmp/` temporary extraction and test files
 - `web/dist/` and `web/tsconfig.tsbuildinfo` web build output
 
-Do not commit media, transcripts, model files, caches, databases, or build output unless a future release process explicitly calls for a sanitized fixture.
+Do not commit media, transcripts, model files, caches, databases, screenshots, archives, or build output unless a future release process explicitly calls for sanitized fixtures.
 
 ## Project Layout
 
 ```text
 app/       Python package and CLI
 web/       React/Vite browser UI
-scripts/   PowerShell setup and run helpers
+scripts/   PowerShell setup, quality, smoke, and run helpers
 models/    Whisper model downloads, ignored by Git
 inputs/    Local media inputs, ignored by Git
 outputs/   Generated transcripts/subtitles, ignored by Git
@@ -183,7 +146,7 @@ data/      SQLite job history, ignored by Git
 
 ## Current Status
 
-The first vertical slice works:
+The first public alpha slice works:
 
 1. Extract audio with FFmpeg.
 2. Transcribe locally with `faster-whisper`.
@@ -199,9 +162,7 @@ The first vertical slice works:
 12. Export completed jobs as ZIP archives with manifest and available artifacts.
 13. Import validated job archives back into local D-drive storage as restored completed jobs.
 14. Smoke-test archive export/import round-trips against the running local API.
-15. Run backend, web, and optional live archive smoke checks from one D-drive-safe quality command.
+15. Run backend, web, release posture, doctor, and optional live smoke checks from D-drive-safe scripts.
 16. Show active D-drive project, input, output, model, data, temp, and cache paths in the local UI.
-17. Smoke-test the running web UI and API proxy without adding browser test dependencies.
-18. Preview archive metadata before importing restored jobs.
-19. Show the PolyForm Noncommercial license boundary in the local UI and verify release posture with one D-drive-safe script.
-20. Start and stop the local API/web pair with D-drive-safe wrapper scripts and logs.
+17. Preview archive metadata before importing restored jobs.
+18. Show the PolyForm Noncommercial license boundary in the local UI.

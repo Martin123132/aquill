@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 
-DEFAULT_ROOT = Path(os.environ.get("TRANSCRIBER_ROOT", r"D:\revenge-tour\transcriber"))
+DEFAULT_ROOT = Path(os.environ.get("TRANSCRIBER_ROOT", Path.cwd()))
 
 
 class StoragePolicyError(RuntimeError):

@@ -14,7 +14,7 @@ from pathlib import Path
 from unittest import mock
 
 
-TEST_ROOT = Path(r"D:\revenge-tour\transcriber\tmp\backend-quality-tests")
+TEST_ROOT = Path(__file__).resolve().parents[2] / "tmp" / "backend-quality-tests"
 os.environ["TRANSCRIBER_ROOT"] = str(TEST_ROOT)
 
 if TEST_ROOT.exists():

@@ -6,22 +6,22 @@ Licensed under the PolyForm Noncommercial License 1.0.0. Personal and noncommerc
 
 ## Storage Contract
 
-The default project root is:
+Use a D-drive project root, for example:
 
 ```text
-D:\revenge-tour\transcriber
+D:\Projects\aquill
 ```
 
-The app writes only under this root unless you explicitly pass another `D:\` output path.
+The scripts resolve the active project root from their own location. The app writes only under that D-drive checkout unless you explicitly pass another `D:\` output path.
 
 Important directories:
 
 ```text
-D:\revenge-tour\transcriber\models
-D:\revenge-tour\transcriber\inputs
-D:\revenge-tour\transcriber\outputs
-D:\revenge-tour\transcriber\tmp
-D:\revenge-tour\transcriber\cache
+models
+inputs
+outputs
+tmp
+cache
 ```
 
 ## Setup
@@ -29,29 +29,29 @@ D:\revenge-tour\transcriber\cache
 From PowerShell:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\setup.ps1
+.\scripts\setup.ps1
 ```
 
 That creates a virtual environment at:
 
 ```text
-D:\revenge-tour\transcriber\.venv
+.venv
 ```
 
 and installs the CLI in editable mode.
 
 ## Usage
 
-Put media files under `D:\revenge-tour\transcriber\inputs`, then run:
+Put media files under `inputs`, then run:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\transcribe.ps1 D:\revenge-tour\transcriber\inputs\sample.mp4
+.\scripts\transcribe.ps1 .\inputs\sample.mp4
 ```
 
 Outputs are written to a timestamped job directory under:
 
 ```text
-D:\revenge-tour\transcriber\outputs
+outputs
 ```
 
 Generated files:
@@ -75,7 +75,7 @@ Use `tiny` or `base` for faster first tests. Larger models are slower and requir
 Run:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\serve-api.ps1 --host 127.0.0.1 --port 8091
+.\scripts\serve-api.ps1 --host 127.0.0.1 --port 8091
 ```
 
 Endpoints:
@@ -101,7 +101,7 @@ Endpoints:
 
 The API accepts one active transcription worker by default.
 The health endpoint reports API status, project root, database path and availability, worker busy state, active jobs, and total jobs.
-Job history is stored in `D:\revenge-tour\transcriber\data\transcriber.db`.
+Job history is stored in `data\transcriber.db`.
 Completed output folders are rescanned on API startup so older jobs can reappear.
 Interrupted active jobs are marked failed on API startup so the queue does not get stuck after a restart.
 Cancel requests work for queued jobs and running jobs. Running jobs stop at safe checkpoints during FFmpeg extraction, Whisper segment iteration, or before export writing, and temporary audio is cleaned up.
@@ -122,9 +122,9 @@ The storage endpoint reports the active project, input, output, model, data, tem
 Run the backend quality check with:
 
 ```powershell
-D:\revenge-tour\transcriber\scripts\quality-backend.ps1
+.\scripts\quality-backend.ps1
 ```
 
-That command compiles the backend package and tests, then runs the focused `unittest` suite. The tests use fake transcription work and an isolated D-drive test root under `D:\revenge-tour\transcriber\tmp`.
+That command compiles the backend package and tests, then runs the focused `unittest` suite. The tests use fake transcription work and an isolated D-drive test root under `tmp`.
 
 This backend check does not download Whisper models or run real transcription.
