@@ -904,6 +904,58 @@ button {
   gap: 10px;
 }
 
+.lyrics-tools {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 12px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid #b8ddd5;
+  border-radius: 8px;
+  background: #f2faf7;
+}
+
+.lyrics-field {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.lyrics-field span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 740;
+}
+
+.lyrics-field textarea {
+  width: 100%;
+  min-height: 118px;
+  resize: vertical;
+  border: 1px solid #bedbd2;
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: #26312d;
+  background: #ffffff;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.lyrics-field textarea:focus {
+  border-color: #9ccdc2;
+  outline: 3px solid rgba(11, 123, 114, 0.12);
+}
+
+.lyrics-actions {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.lyrics-actions .save-state {
+  overflow-wrap: anywhere;
+}
+
 .save-state {
   color: var(--muted);
   font-size: 13px;
@@ -1086,6 +1138,10 @@ button {
   }
 
   .archive-preview-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .lyrics-tools {
     grid-template-columns: 1fr;
   }
 

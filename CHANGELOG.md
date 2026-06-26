@@ -11,6 +11,7 @@ All notable local release-candidate changes for Aquill are tracked here.
 - Add `scripts\doctor.ps1` for one-command local environment checks.
 - Make PowerShell helper scripts resolve the current D-drive checkout instead of a single machine path.
 - Add public-alpha README polish and security/privacy guidance.
+- Add lyrics alignment for completed song jobs with regenerated transcript and subtitle artifacts.
 - Harden cancellation-state backend tests against valid fast-worker timing.
 - Add public contact details for collaboration, product, and licensing enquiries.
 

@@ -116,6 +116,11 @@ type ArchivePreview = {
   artifacts: ArchivePreviewArtifact[];
 };
 
+type LyricsAlignmentPayload = {
+  line_count: number;
+  transcript: Transcript;
+};
+
 const MODEL_OPTIONS = ["tiny", "base", "small", "medium", "large-v3"];
 const COMPUTE_OPTIONS = ["int8", "float16", "float32"];
 const DEVICE_OPTIONS = ["auto", "cpu", "cuda"];
@@ -174,6 +179,9 @@ function App() {
   const [archivePreview, setArchivePreview] = useState<ArchivePreview | null>(null);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [archiveStatus, setArchiveStatus] = useState<string | null>(null);
+  const [lyricsDraft, setLyricsDraft] = useState("");
+  const [lyricsStatus, setLyricsStatus] = useState<string | null>(null);
+  const [isAligningLyrics, setIsAligningLyrics] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobFilter, setJobFilter] = useState<JobFilter>("all");
   const [jobSearch, setJobSearch] = useState("");
@@ -235,6 +243,7 @@ function App() {
       setTranscript(null);
       setDraftSegments([]);
       setSaveStatus(null);
+      setLyricsStatus(null);
       return;
     }
     void loadTranscript(activeJob.transcript_url);
@@ -282,6 +291,7 @@ function App() {
     setTranscript(payload);
     setDraftSegments(payload.segments);
     setSaveStatus(null);
+    setLyricsStatus(null);
   }
 
   async function saveTranscript() {
@@ -313,6 +323,35 @@ function App() {
       setSaveStatus(caught instanceof Error ? caught.message : "Transcript save failed.");
     } finally {
       setIsSavingTranscript(false);
+    }
+  }
+
+  async function alignLyrics() {
+    if (!activeJob || !transcript || !lyricsDraft.trim()) return;
+    setIsAligningLyrics(true);
+    setLyricsStatus(null);
+
+    try {
+      const response = await fetch(`/api/jobs/${activeJob.id}/lyrics`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lyrics: lyricsDraft })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail ?? "Lyrics alignment failed.");
+      }
+      const payload = (await response.json()) as LyricsAlignmentPayload;
+      setTranscript(payload.transcript);
+      setDraftSegments(payload.transcript.segments);
+      setLyricsDraft("");
+      setLyricsStatus(`${payload.line_count} timed lyric line${payload.line_count === 1 ? "" : "s"}`);
+      setSaveStatus("Exports regenerated");
+      await refreshJobs();
+    } catch (caught) {
+      setLyricsStatus(caught instanceof Error ? caught.message : "Lyrics alignment failed.");
+    } finally {
+      setIsAligningLyrics(false);
     }
   }
 
@@ -853,26 +892,53 @@ function App() {
             </div>
           </div>
           {transcript ? (
-            <div className="transcript-layout">
-              <div className="transcript-copy">
-                {draftSegments.map((segment) => (
-                  <div className="transcript-row" key={segment.index}>
-                    <time>{formatTime(segment.start)}</time>
-                    <textarea
-                      aria-label={`Transcript segment ${segment.index}`}
-                      value={segment.text}
-                      onChange={(event) => updateDraftSegment(segment.index, event.target.value)}
-                      rows={2}
-                    />
-                  </div>
-                ))}
+            <>
+              <div className="lyrics-tools" data-testid="lyrics-tools">
+                <label className="lyrics-field">
+                  <span>Lyrics</span>
+                  <textarea
+                    data-testid="lyrics-input"
+                    value={lyricsDraft}
+                    onChange={(event) => setLyricsDraft(event.target.value)}
+                    placeholder="Paste lyrics"
+                    rows={5}
+                  />
+                </label>
+                <div className="lyrics-actions">
+                  {lyricsStatus ? <span className="save-state">{lyricsStatus}</span> : null}
+                  <button
+                    className="secondary-button"
+                    data-testid="lyrics-align-button"
+                    disabled={!lyricsDraft.trim() || isAligningLyrics}
+                    onClick={alignLyrics}
+                    type="button"
+                  >
+                    {isAligningLyrics ? <Loader2 className="spin" size={16} aria-hidden /> : <Captions size={16} aria-hidden />}
+                    Align lyrics
+                  </button>
+                </div>
               </div>
-              <aside className="meta-strip">
-                <Metric label="Language" value={transcript.language ?? "auto"} />
-                <Metric label="Duration" value={transcript.duration ? formatTime(transcript.duration) : "unknown"} />
-                <Metric label="Segments" value={String(transcript.segments.length)} />
-              </aside>
-            </div>
+              <div className="transcript-layout">
+                <div className="transcript-copy">
+                  {draftSegments.map((segment) => (
+                    <div className="transcript-row" key={segment.index}>
+                      <time>{formatTime(segment.start)}</time>
+                      <textarea
+                        aria-label={`Transcript segment ${segment.index}`}
+                        value={segment.text}
+                        onChange={(event) => updateDraftSegment(segment.index, event.target.value)}
+                        rows={2}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <aside className="meta-strip">
+                  <Metric label="Language" value={transcript.language ?? "auto"} />
+                  <Metric label="Duration" value={transcript.duration ? formatTime(transcript.duration) : "unknown"} />
+                  <Metric label="Segments" value={String(transcript.segments.length)} />
+                </aside>
+              </div>
+            </>
           ) : (
             <div className="empty-transcript">Transcript will appear here when a job completes.</div>
           )}

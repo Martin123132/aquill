@@ -23,6 +23,8 @@ if TEST_ROOT.exists():
 from revenge_transcriber import db, server  # noqa: E402
 from revenge_transcriber.archive import ArchiveImportError, build_job_archive, import_job_archive, preview_job_archive  # noqa: E402
 from revenge_transcriber.exceptions import JobCancelled  # noqa: E402
+from revenge_transcriber.formatters import TranscriptResult, TranscriptSegment, read_json, write_all_outputs  # noqa: E402
+from revenge_transcriber.lyrics import align_lyrics_to_transcript, lyric_lines_from_text  # noqa: E402
 from revenge_transcriber.paths import tmp_dir  # noqa: E402
 from revenge_transcriber.pipeline import TranscriptionOptions, run_transcription_job  # noqa: E402
 from revenge_transcriber.records import JobRecord  # noqa: E402
@@ -407,6 +409,80 @@ class BackendQualityTests(unittest.TestCase):
         after = {path.resolve() for path in server.outputs_dir().glob("*")}
         self.assertIn("Unsupported artifact entry", str(raised.exception))
         self.assertEqual(after, before)
+
+    def test_lyrics_cleanup_removes_section_labels(self) -> None:
+        lines = lyric_lines_from_text(
+            """
+            Lyrics:
+            [Intro]
+            First real line
+
+            [Chorus]
+            Second real line
+            [End]
+            """
+        )
+
+        self.assertEqual(lines, ["First real line", "Second real line"])
+
+    def test_lyrics_alignment_distributes_more_lines_than_segments(self) -> None:
+        base = TranscriptResult(
+            source="song.wav",
+            language="en",
+            duration=12.0,
+            segments=[TranscriptSegment(index=1, start=0.0, end=12.0, text="bad transcript")],
+        )
+
+        aligned = align_lyrics_to_transcript(base, "Line one\nLine two\nLine three")
+
+        self.assertEqual([segment.text for segment in aligned.segments], ["Line one", "Line two", "Line three"])
+        self.assertEqual([(segment.start, segment.end) for segment in aligned.segments], [(0.0, 4.0), (4.0, 8.0), (8.0, 12.0)])
+
+    def test_lyrics_endpoint_regenerates_transcript_and_subtitles(self) -> None:
+        job = self._insert_job(f"test-lyrics-{uuid.uuid4().hex}", "completed")
+        output_dir = Path(job.output_dir)
+        write_all_outputs(
+            TranscriptResult(
+                source=job.input_path,
+                language="en",
+                duration=10.0,
+                segments=[
+                    TranscriptSegment(index=1, start=0.0, end=5.0, text="mumbled opening"),
+                    TranscriptSegment(index=2, start=5.0, end=10.0, text="mumbled ending"),
+                ],
+            ),
+            output_dir,
+        )
+
+        payload = server.align_job_lyrics(
+            job.id,
+            server.LyricsAlignmentRequest(lyrics="Lyrics:\n[Verse]\nActual first line\nActual second line"),
+        )
+
+        self.assertEqual(payload["line_count"], 2)
+        transcript = read_json(output_dir / "transcript.json")
+        self.assertEqual([segment.text for segment in transcript.segments], ["Actual first line", "Actual second line"])
+        self.assertIn("Actual first line", (output_dir / "subtitles.srt").read_text(encoding="utf-8"))
+        self.assertIn("Actual second line", (output_dir / "subtitles.vtt").read_text(encoding="utf-8"))
+        updated = server.require_job(job.id)
+        self.assertEqual(updated.progress_message, "Lyrics aligned into 2 timed lines.")
+
+    def test_lyrics_endpoint_rejects_empty_cleaned_lyrics(self) -> None:
+        job = self._insert_job(f"test-empty-lyrics-{uuid.uuid4().hex}", "completed")
+        write_all_outputs(
+            TranscriptResult(
+                source=job.input_path,
+                language="en",
+                duration=1.0,
+                segments=[TranscriptSegment(index=1, start=0.0, end=1.0, text="placeholder")],
+            ),
+            Path(job.output_dir),
+        )
+
+        with self.assertRaises(Exception) as raised:
+            server.align_job_lyrics(job.id, server.LyricsAlignmentRequest(lyrics="[Intro]\n[End]"))
+
+        self.assertEqual(getattr(raised.exception, "status_code", None), 400)
 
     def _insert_job(self, job_id: str, status: str) -> JobRecord:
         now = server.timestamp()

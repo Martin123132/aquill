@@ -73,6 +73,8 @@ Assert-Contains -Text $AppSource -Needle "archive-import-input" -Label "App sour
 Assert-Contains -Text $AppSource -Needle "archive-preview" -Label "App source"
 Assert-Contains -Text $AppSource -Needle "job-export-button" -Label "App source"
 Assert-Contains -Text $AppSource -Needle "job-search-input" -Label "App source"
+Assert-Contains -Text $AppSource -Needle "lyrics-input" -Label "App source"
+Assert-Contains -Text $AppSource -Needle "lyrics-align-button" -Label "App source"
 Assert-Contains -Text $AppSource -Needle 'key: "completed"' -Label "App source"
 Assert-Contains -Text $AppSource -Needle '"data-testid": `job-filter-${filter.key}`' -Label "App source"
 Assert-Contains -Text $AppSource -Needle "D-drive local" -Label "App source"

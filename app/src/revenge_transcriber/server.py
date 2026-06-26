@@ -19,6 +19,7 @@ from .db import get_job as db_get_job
 from .db import initialise_database, insert_job, list_jobs as db_list_jobs
 from .db import list_output_dirs, update_job_status
 from .formatters import TranscriptResult, TranscriptSegment, read_json, write_all_outputs
+from .lyrics import LyricsAlignmentError, align_lyrics_to_transcript
 from .naming import make_job_name, safe_file_name
 from .paths import cache_dir, configure_environment, data_dir, inputs_dir, models_dir, outputs_dir, project_root, tmp_dir
 from .pipeline import TranscriptionOptions, run_transcription_job
@@ -271,6 +272,10 @@ class TranscriptUpdate(BaseModel):
     segments: list[SegmentUpdate]
 
 
+class LyricsAlignmentRequest(BaseModel):
+    lyrics: str = Field(min_length=1)
+
+
 @app.put("/api/jobs/{job_id}/transcript")
 def update_transcript(job_id: str, update: TranscriptUpdate) -> JSONResponse:
     job = require_completed_job(job_id)
@@ -309,6 +314,35 @@ def update_transcript(job_id: str, update: TranscriptUpdate) -> JSONResponse:
         progress_message="Transcript edits saved and exports regenerated.",
     )
     return JSONResponse(json.loads(transcript_path.read_text(encoding="utf-8")))
+
+
+@app.post("/api/jobs/{job_id}/lyrics")
+def align_job_lyrics(job_id: str, request: LyricsAlignmentRequest) -> dict[str, object]:
+    job = require_completed_job(job_id)
+    output_dir = Path(job.output_dir)
+    transcript_path = output_dir / "transcript.json"
+    if not transcript_path.exists():
+        raise HTTPException(status_code=404, detail="Transcript JSON is not available.")
+
+    current = read_json(transcript_path)
+    try:
+        aligned = align_lyrics_to_transcript(current, request.lyrics)
+    except LyricsAlignmentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    write_all_outputs(aligned, output_dir)
+    line_count = len(aligned.segments)
+    update_job_status(
+        job.id,
+        "completed",
+        timestamp(),
+        error=None,
+        progress_message=f"Lyrics aligned into {line_count} timed line{'s' if line_count != 1 else ''}.",
+    )
+    return {
+        "line_count": line_count,
+        "transcript": json.loads(transcript_path.read_text(encoding="utf-8")),
+    }
 
 
 @app.get("/api/jobs/{job_id}/download/{artifact}")

@@ -131,6 +131,7 @@ Assert-FileContains -Path $AppReadmePath -Needle "# $ExpectedProductName" -Label
 Assert-FileContains -Path $AppReadmePath -Needle "Source-available" -Label "app README"
 Assert-FileContains -Path $AppSourcePath -Needle "<h1>$ExpectedProductName</h1>" -Label "App source"
 Assert-FileContains -Path $AppSourcePath -Needle "license-panel" -Label "App source"
+Assert-FileContains -Path $AppSourcePath -Needle "lyrics-align-button" -Label "App source"
 Assert-FileContains -Path $AppSourcePath -Needle $ExpectedLicense -Label "App source"
 Assert-FileContains -Path $AppSourcePath -Needle "Commercial hosting, resale, paid subscription use" -Label "App source"
 Assert-ReleaseCheck -Condition (Test-Path -LiteralPath $StartLocalPath) -Message "start-local.ps1 is missing."
