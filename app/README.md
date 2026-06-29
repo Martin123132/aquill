@@ -90,6 +90,8 @@ Endpoints:
 - `POST /api/jobs/{job_id}/open-output`
 - `GET /api/jobs/{job_id}/transcript`
 - `PUT /api/jobs/{job_id}/transcript`
+- `POST /api/jobs/{job_id}/transcript/restore-original`
+- `POST /api/jobs/{job_id}/lyrics/preview`
 - `POST /api/jobs/{job_id}/lyrics`
 - `GET /api/jobs/{job_id}/download/{txt|json|srt|vtt|audio}`
 - `GET /api/jobs/{job_id}/archive`
@@ -107,10 +109,10 @@ Completed output folders are rescanned on API startup so older jobs can reappear
 Interrupted active jobs are marked failed on API startup so the queue does not get stuck after a restart.
 Cancel requests work for queued jobs and running jobs. Running jobs stop at safe checkpoints during FFmpeg extraction, Whisper segment iteration, or before export writing, and temporary audio is cleaned up.
 Completed jobs can be exported as ZIP archives containing a `manifest.json` plus available transcript, subtitle, JSON, and optional kept audio artifacts.
-Known lyrics can be pasted into `POST /api/jobs/{job_id}/lyrics` for a completed job. The API removes simple section labels such as `[Chorus]`, aligns lyric lines to the job duration or existing segment timing, and regenerates TXT, JSON, SRT, and VTT outputs.
+Known lyrics can be previewed with `POST /api/jobs/{job_id}/lyrics/preview` for a completed job, then applied with `POST /api/jobs/{job_id}/lyrics`. The API removes simple section labels such as `[Chorus]`, aligns lyric lines to the job duration or existing segment timing, backs up the original TXT, JSON, SRT, and VTT artifacts once, and regenerates the normal outputs. `POST /api/jobs/{job_id}/transcript/restore-original` restores those backed-up artifacts.
 Archives can be imported back into local D-drive storage with `POST /api/jobs/import`. Import validates the archive manifest version, rejects unsafe ZIP member paths such as traversal entries, restores only known artifact filenames, and creates a new completed local job rather than overwriting an existing one.
 The import preview endpoint validates an archive and returns source job metadata plus artifact names without restoring files.
-The local web UI exposes the same archive flow with an Export action on completed jobs and an Import ZIP preview/import control in the intake panel. The transcript panel also exposes lyrics alignment for rough song transcripts when the user already has the correct words.
+The local web UI exposes the same archive flow with an Export action on completed jobs and an Import ZIP preview/import control in the intake panel. The transcript panel also exposes lyrics preview, apply, and restore controls for rough song transcripts when the user already has the correct words. The upload panel includes a Song preset for music-oriented defaults.
 The storage endpoint reports the active project, input, output, model, data, temp, and cache directories so the UI can show that runtime storage is pinned to `D:\`.
 
 ## Requirements

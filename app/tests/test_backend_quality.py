@@ -460,12 +460,66 @@ class BackendQualityTests(unittest.TestCase):
         )
 
         self.assertEqual(payload["line_count"], 2)
+        self.assertTrue(payload["has_original_transcript"])
         transcript = read_json(output_dir / "transcript.json")
         self.assertEqual([segment.text for segment in transcript.segments], ["Actual first line", "Actual second line"])
+        self.assertIn("mumbled opening", (output_dir / "transcript.original.txt").read_text(encoding="utf-8"))
+        self.assertTrue((output_dir / "transcript.original.json").exists())
+        self.assertTrue((output_dir / "subtitles.original.srt").exists())
+        self.assertTrue((output_dir / "subtitles.original.vtt").exists())
         self.assertIn("Actual first line", (output_dir / "subtitles.srt").read_text(encoding="utf-8"))
         self.assertIn("Actual second line", (output_dir / "subtitles.vtt").read_text(encoding="utf-8"))
         updated = server.require_job(job.id)
         self.assertEqual(updated.progress_message, "Lyrics aligned into 2 timed lines.")
+        self.assertTrue(server.public_job(updated)["has_original_transcript"])
+
+    def test_lyrics_preview_does_not_write_outputs_or_backups(self) -> None:
+        job = self._insert_job(f"test-lyrics-preview-{uuid.uuid4().hex}", "completed")
+        output_dir = Path(job.output_dir)
+        write_all_outputs(
+            TranscriptResult(
+                source=job.input_path,
+                language="en",
+                duration=8.0,
+                segments=[TranscriptSegment(index=1, start=0.0, end=8.0, text="rough words")],
+            ),
+            output_dir,
+        )
+        original_text = (output_dir / "transcript.txt").read_text(encoding="utf-8")
+
+        payload = server.preview_job_lyrics(job.id, server.LyricsAlignmentRequest(lyrics="Clean line one\nClean line two"))
+
+        self.assertEqual(payload["line_count"], 2)
+        self.assertFalse(payload["has_original_transcript"])
+        preview = payload["transcript"]
+        self.assertIsInstance(preview, dict)
+        self.assertEqual([segment["text"] for segment in preview["segments"]], ["Clean line one", "Clean line two"])
+        self.assertEqual((output_dir / "transcript.txt").read_text(encoding="utf-8"), original_text)
+        self.assertFalse((output_dir / "transcript.original.json").exists())
+
+    def test_restore_original_transcript_restores_backed_up_outputs(self) -> None:
+        job = self._insert_job(f"test-lyrics-restore-{uuid.uuid4().hex}", "completed")
+        output_dir = Path(job.output_dir)
+        write_all_outputs(
+            TranscriptResult(
+                source=job.input_path,
+                language="en",
+                duration=6.0,
+                segments=[TranscriptSegment(index=1, start=0.0, end=6.0, text="rough original")],
+            ),
+            output_dir,
+        )
+        server.align_job_lyrics(job.id, server.LyricsAlignmentRequest(lyrics="Corrected lyric"))
+
+        payload = server.restore_original_transcript(job.id)
+
+        self.assertEqual(set(payload["restored_artifacts"]), {"transcript.txt", "transcript.json", "subtitles.srt", "subtitles.vtt"})
+        self.assertTrue(payload["has_original_transcript"])
+        restored = read_json(output_dir / "transcript.json")
+        self.assertEqual([segment.text for segment in restored.segments], ["rough original"])
+        self.assertIn("rough original", (output_dir / "subtitles.srt").read_text(encoding="utf-8"))
+        updated = server.require_job(job.id)
+        self.assertEqual(updated.progress_message, "Original transcript restored (4 artifacts).")
 
     def test_lyrics_endpoint_rejects_empty_cleaned_lyrics(self) -> None:
         job = self._insert_job(f"test-empty-lyrics-{uuid.uuid4().hex}", "completed")

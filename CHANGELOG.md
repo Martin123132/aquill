@@ -4,6 +4,12 @@ All notable local release-candidate changes for Aquill are tracked here.
 
 ## Unreleased
 
+No unreleased changes yet.
+
+## 0.1.0-alpha - 2026-06-29
+
+### Added
+
 - Keep the project source-available under the PolyForm Noncommercial License 1.0.0.
 - Keep generated media, transcripts, caches, databases, temp files, model files, and build artifacts under the current D-drive checkout.
 - Keep release candidates gated by `scripts\release-check.ps1`.
@@ -11,9 +17,15 @@ All notable local release-candidate changes for Aquill are tracked here.
 - Add `scripts\doctor.ps1` for one-command local environment checks.
 - Make PowerShell helper scripts resolve the current D-drive checkout instead of a single machine path.
 - Add public-alpha README polish and security/privacy guidance.
-- Add lyrics alignment for completed song jobs with regenerated transcript and subtitle artifacts.
+- Add lyrics preview/apply/restore for completed song jobs with one-time original artifact backups.
+- Add a Song preset for music-oriented local transcription defaults.
 - Harden cancellation-state backend tests against valid fast-worker timing.
 - Add public contact details for collaboration, product, and licensing enquiries.
+
+### Verified
+
+- `scripts\release-check.ps1` passes with backend tests and web build.
+- `scripts\quality-all.ps1 -IncludeWebSmoke` passes against the running local API and web UI.
 
 ## 0.1.0-local - 2026-06-24
 

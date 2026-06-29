@@ -48,6 +48,7 @@ type Job = {
   artifacts: Record<string, string>;
   transcript_url: string | null;
   archive_url: string | null;
+  has_original_transcript: boolean;
   can_cancel: boolean;
   can_retry: boolean;
   can_delete: boolean;
@@ -119,7 +120,16 @@ type ArchivePreview = {
 type LyricsAlignmentPayload = {
   line_count: number;
   transcript: Transcript;
+  has_original_transcript: boolean;
 };
+
+type LyricsRestorePayload = {
+  restored_artifacts: string[];
+  transcript: Transcript;
+  has_original_transcript: boolean;
+};
+
+type PresetMode = "standard" | "song";
 
 const MODEL_OPTIONS = ["tiny", "base", "small", "medium", "large-v3"];
 const COMPUTE_OPTIONS = ["int8", "float16", "float32"];
@@ -180,12 +190,16 @@ function App() {
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [archiveStatus, setArchiveStatus] = useState<string | null>(null);
   const [lyricsDraft, setLyricsDraft] = useState("");
+  const [lyricsPreview, setLyricsPreview] = useState<Transcript | null>(null);
   const [lyricsStatus, setLyricsStatus] = useState<string | null>(null);
   const [isAligningLyrics, setIsAligningLyrics] = useState(false);
+  const [isPreviewingLyrics, setIsPreviewingLyrics] = useState(false);
+  const [isRestoringOriginal, setIsRestoringOriginal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [jobFilter, setJobFilter] = useState<JobFilter>("all");
   const [jobSearch, setJobSearch] = useState("");
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
+  const [activePreset, setActivePreset] = useState<PresetMode>("standard");
 
   const activeJob = useMemo(
     () => jobs.find((job) => job.id === activeJobId) ?? jobs[0] ?? null,
@@ -244,6 +258,7 @@ function App() {
       setDraftSegments([]);
       setSaveStatus(null);
       setLyricsStatus(null);
+      setLyricsPreview(null);
       return;
     }
     void loadTranscript(activeJob.transcript_url);
@@ -292,6 +307,7 @@ function App() {
     setDraftSegments(payload.segments);
     setSaveStatus(null);
     setLyricsStatus(null);
+    setLyricsPreview(null);
   }
 
   async function saveTranscript() {
@@ -326,8 +342,55 @@ function App() {
     }
   }
 
-  async function alignLyrics() {
+  function applyPreset(preset: PresetMode) {
+    setActivePreset(preset);
+    if (preset === "song") {
+      setSettings((current) => ({
+        ...current,
+        model: "small",
+        language: "en",
+        device: "auto",
+        computeType: "int8",
+        task: "transcribe",
+        vadFilter: true
+      }));
+    }
+  }
+
+  function updateLyricsDraft(value: string) {
+    setLyricsDraft(value);
+    setLyricsPreview(null);
+    setLyricsStatus(null);
+  }
+
+  async function previewLyrics() {
     if (!activeJob || !transcript || !lyricsDraft.trim()) return;
+    setIsPreviewingLyrics(true);
+    setLyricsStatus(null);
+
+    try {
+      const response = await fetch(`/api/jobs/${activeJob.id}/lyrics/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lyrics: lyricsDraft })
+      });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail ?? "Lyrics preview failed.");
+      }
+      const payload = (await response.json()) as LyricsAlignmentPayload;
+      setLyricsPreview(payload.transcript);
+      setLyricsStatus(`${payload.line_count} timed lyric line${payload.line_count === 1 ? "" : "s"} ready`);
+    } catch (caught) {
+      setLyricsPreview(null);
+      setLyricsStatus(caught instanceof Error ? caught.message : "Lyrics preview failed.");
+    } finally {
+      setIsPreviewingLyrics(false);
+    }
+  }
+
+  async function alignLyrics() {
+    if (!activeJob || !transcript || !lyricsDraft.trim() || !lyricsPreview) return;
     setIsAligningLyrics(true);
     setLyricsStatus(null);
 
@@ -345,6 +408,7 @@ function App() {
       setTranscript(payload.transcript);
       setDraftSegments(payload.transcript.segments);
       setLyricsDraft("");
+      setLyricsPreview(null);
       setLyricsStatus(`${payload.line_count} timed lyric line${payload.line_count === 1 ? "" : "s"}`);
       setSaveStatus("Exports regenerated");
       await refreshJobs();
@@ -352,6 +416,32 @@ function App() {
       setLyricsStatus(caught instanceof Error ? caught.message : "Lyrics alignment failed.");
     } finally {
       setIsAligningLyrics(false);
+    }
+  }
+
+  async function restoreOriginalTranscript() {
+    if (!activeJob?.has_original_transcript) return;
+    setIsRestoringOriginal(true);
+    setSaveStatus(null);
+
+    try {
+      const response = await fetch(`/api/jobs/${activeJob.id}/transcript/restore-original`, { method: "POST" });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null);
+        throw new Error(payload?.detail ?? "Original restore failed.");
+      }
+      const payload = (await response.json()) as LyricsRestorePayload;
+      setTranscript(payload.transcript);
+      setDraftSegments(payload.transcript.segments);
+      setLyricsDraft("");
+      setLyricsPreview(null);
+      setLyricsStatus(null);
+      setSaveStatus(`Original restored (${payload.restored_artifacts.length})`);
+      await refreshJobs();
+    } catch (caught) {
+      setSaveStatus(caught instanceof Error ? caught.message : "Original restore failed.");
+    } finally {
+      setIsRestoringOriginal(false);
     }
   }
 
@@ -648,6 +738,28 @@ function App() {
               </div>
             ) : null}
 
+            <div className="preset-row" aria-label="Transcription presets">
+              <button
+                type="button"
+                className={activePreset === "standard" ? "active" : ""}
+                onClick={() => applyPreset("standard")}
+                data-testid="preset-standard-button"
+              >
+                <Mic2 size={16} aria-hidden />
+                Standard
+              </button>
+              <button
+                type="button"
+                className={activePreset === "song" ? "active" : ""}
+                onClick={() => applyPreset("song")}
+                data-testid="preset-song-button"
+              >
+                <Captions size={16} aria-hidden />
+                Song
+              </button>
+            </div>
+            {activePreset === "song" ? <p className="preset-note">Song transcription is approximate.</p> : null}
+
             <div className="control-grid">
               <SelectField label="Model" value={settings.model} onChange={(model) => setSettings((current) => ({ ...current, model }))} options={MODEL_OPTIONS} />
               <TextField label="Language" value={settings.language} onChange={(language) => setSettings((current) => ({ ...current, language }))} placeholder="auto" />
@@ -881,6 +993,16 @@ function App() {
             <div className="transcript-actions">
               {saveStatus ? <span className="save-state">{saveStatus}</span> : null}
               <button
+                className="ghost-button"
+                data-testid="restore-original-button"
+                disabled={!activeJob?.has_original_transcript || isRestoringOriginal}
+                onClick={restoreOriginalTranscript}
+                type="button"
+              >
+                {isRestoringOriginal ? <Loader2 className="spin" size={16} aria-hidden /> : <RotateCcw size={16} aria-hidden />}
+                Restore original
+              </button>
+              <button
                 className="secondary-button"
                 disabled={!transcriptIsDirty || isSavingTranscript}
                 onClick={saveTranscript}
@@ -899,7 +1021,7 @@ function App() {
                   <textarea
                     data-testid="lyrics-input"
                     value={lyricsDraft}
-                    onChange={(event) => setLyricsDraft(event.target.value)}
+                    onChange={(event) => updateLyricsDraft(event.target.value)}
                     placeholder="Paste lyrics"
                     rows={5}
                   />
@@ -907,9 +1029,19 @@ function App() {
                 <div className="lyrics-actions">
                   {lyricsStatus ? <span className="save-state">{lyricsStatus}</span> : null}
                   <button
+                    className="ghost-button"
+                    data-testid="lyrics-preview-button"
+                    disabled={!lyricsDraft.trim() || isPreviewingLyrics}
+                    onClick={previewLyrics}
+                    type="button"
+                  >
+                    {isPreviewingLyrics ? <Loader2 className="spin" size={16} aria-hidden /> : <Search size={16} aria-hidden />}
+                    Preview
+                  </button>
+                  <button
                     className="secondary-button"
                     data-testid="lyrics-align-button"
-                    disabled={!lyricsDraft.trim() || isAligningLyrics}
+                    disabled={!lyricsPreview || isAligningLyrics}
                     onClick={alignLyrics}
                     type="button"
                   >
@@ -918,6 +1050,16 @@ function App() {
                   </button>
                 </div>
               </div>
+              {lyricsPreview ? (
+                <div className="lyrics-preview" data-testid="lyrics-preview">
+                  {lyricsPreview.segments.map((segment) => (
+                    <div className="lyrics-preview-row" key={segment.index}>
+                      <time>{formatTime(segment.start)}</time>
+                      <span>{segment.text}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <div className="transcript-layout">
                 <div className="transcript-copy">
                   {draftSegments.map((segment) => (

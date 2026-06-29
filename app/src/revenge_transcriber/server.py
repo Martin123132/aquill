@@ -19,7 +19,13 @@ from .db import get_job as db_get_job
 from .db import initialise_database, insert_job, list_jobs as db_list_jobs
 from .db import list_output_dirs, update_job_status
 from .formatters import TranscriptResult, TranscriptSegment, read_json, write_all_outputs
-from .lyrics import LyricsAlignmentError, align_lyrics_to_transcript
+from .lyrics import (
+    LyricsAlignmentError,
+    align_lyrics_to_transcript,
+    backup_original_outputs,
+    original_outputs_available,
+    restore_original_outputs,
+)
 from .naming import make_job_name, safe_file_name
 from .paths import cache_dir, configure_environment, data_dir, inputs_dir, models_dir, outputs_dir, project_root, tmp_dir
 from .pipeline import TranscriptionOptions, run_transcription_job
@@ -316,6 +322,27 @@ def update_transcript(job_id: str, update: TranscriptUpdate) -> JSONResponse:
     return JSONResponse(json.loads(transcript_path.read_text(encoding="utf-8")))
 
 
+@app.post("/api/jobs/{job_id}/lyrics/preview")
+def preview_job_lyrics(job_id: str, request: LyricsAlignmentRequest) -> dict[str, object]:
+    job = require_completed_job(job_id)
+    output_dir = Path(job.output_dir)
+    transcript_path = output_dir / "transcript.json"
+    if not transcript_path.exists():
+        raise HTTPException(status_code=404, detail="Transcript JSON is not available.")
+
+    current = read_json(transcript_path)
+    try:
+        aligned = align_lyrics_to_transcript(current, request.lyrics)
+    except LyricsAlignmentError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "line_count": len(aligned.segments),
+        "transcript": transcript_payload(aligned),
+        "has_original_transcript": original_outputs_available(output_dir),
+    }
+
+
 @app.post("/api/jobs/{job_id}/lyrics")
 def align_job_lyrics(job_id: str, request: LyricsAlignmentRequest) -> dict[str, object]:
     job = require_completed_job(job_id)
@@ -330,6 +357,7 @@ def align_job_lyrics(job_id: str, request: LyricsAlignmentRequest) -> dict[str, 
     except LyricsAlignmentError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    backup_original_outputs(output_dir)
     write_all_outputs(aligned, output_dir)
     line_count = len(aligned.segments)
     update_job_status(
@@ -341,7 +369,34 @@ def align_job_lyrics(job_id: str, request: LyricsAlignmentRequest) -> dict[str, 
     )
     return {
         "line_count": line_count,
+        "transcript": transcript_payload(aligned),
+        "has_original_transcript": original_outputs_available(output_dir),
+    }
+
+
+@app.post("/api/jobs/{job_id}/transcript/restore-original")
+def restore_original_transcript(job_id: str) -> dict[str, object]:
+    job = require_completed_job(job_id)
+    output_dir = Path(job.output_dir)
+    transcript_path = output_dir / "transcript.json"
+    try:
+        restored = restore_original_outputs(output_dir)
+    except LyricsAlignmentError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    if not transcript_path.exists():
+        raise HTTPException(status_code=404, detail="Transcript JSON is not available.")
+
+    update_job_status(
+        job.id,
+        "completed",
+        timestamp(),
+        error=None,
+        progress_message=f"Original transcript restored ({len(restored)} artifacts).",
+    )
+    return {
+        "restored_artifacts": restored,
         "transcript": json.loads(transcript_path.read_text(encoding="utf-8")),
+        "has_original_transcript": original_outputs_available(output_dir),
     }
 
 
@@ -556,6 +611,7 @@ def public_job(job: JobRecord) -> dict[str, object]:
         payload["artifacts"] = {}
         payload["transcript_url"] = None
         payload["archive_url"] = None
+    payload["has_original_transcript"] = job.status == "completed" and original_outputs_available(Path(job.output_dir))
     payload["can_cancel"] = job.status in ACTIVE_STATUSES
     payload["can_retry"] = job.status in {"completed", "failed", "cancelled"}
     payload["can_delete"] = job.status not in RUNNING_STATUSES and not job_future_running(job.id)
@@ -578,6 +634,16 @@ def normalise_language(language: str | None) -> str | None:
 
 def timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def transcript_payload(result: TranscriptResult) -> dict[str, object]:
+    return {
+        "source": result.source,
+        "language": result.language,
+        "duration": result.duration,
+        "text": result.text,
+        "segments": [asdict(segment) for segment in result.segments],
+    }
 
 
 def remove_job_files(job: JobRecord) -> None:

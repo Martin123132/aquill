@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import re
+import shutil
+from pathlib import Path
 
 from .formatters import TranscriptResult, TranscriptSegment
 
 
 SECTION_LABEL_RE = re.compile(r"^\[[^\]]+\]$")
+ARTIFACT_BACKUPS = {
+    "transcript.txt": "transcript.original.txt",
+    "transcript.json": "transcript.original.json",
+    "subtitles.srt": "subtitles.original.srt",
+    "subtitles.vtt": "subtitles.original.vtt",
+}
 
 
 class LyricsAlignmentError(ValueError):
@@ -88,3 +96,33 @@ def distribute_evenly(lines: list[str], duration: float) -> list[TranscriptSegme
         )
         for index, line in enumerate(lines)
     ]
+
+
+def backup_original_outputs(output_dir: Path) -> list[str]:
+    output_dir = output_dir.resolve()
+    backed_up: list[str] = []
+    for source_name, backup_name in ARTIFACT_BACKUPS.items():
+        source = output_dir / source_name
+        backup = output_dir / backup_name
+        if source.exists() and source.is_file() and not backup.exists():
+            shutil.copy2(source, backup)
+            backed_up.append(backup_name)
+    return backed_up
+
+
+def original_outputs_available(output_dir: Path) -> bool:
+    return (output_dir / ARTIFACT_BACKUPS["transcript.json"]).exists()
+
+
+def restore_original_outputs(output_dir: Path) -> list[str]:
+    output_dir = output_dir.resolve()
+    if not original_outputs_available(output_dir):
+        raise LyricsAlignmentError("Original transcript backup is not available.")
+
+    restored: list[str] = []
+    for source_name, backup_name in ARTIFACT_BACKUPS.items():
+        backup = output_dir / backup_name
+        if backup.exists() and backup.is_file():
+            shutil.copy2(backup, output_dir / source_name)
+            restored.append(source_name)
+    return restored

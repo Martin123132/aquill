@@ -10,7 +10,9 @@ Aquill is a source-available, local-first transcription and subtitle workbench. 
 - Queues audio or video files for local transcription with `faster-whisper`.
 - Exports TXT, JSON, SRT, and VTT.
 - Lets you edit transcript segments and regenerate exports.
-- Aligns pasted known lyrics into timed transcript and subtitle exports.
+- Previews and applies pasted known lyrics into timed transcript and subtitle exports.
+- Backs up rough song transcripts before lyrics alignment so originals can be restored.
+- Offers a Song preset with safer defaults for music transcription.
 - Shows local model, storage, progress, and job state.
 - Exports completed jobs as ZIP archives.
 - Previews and imports Aquill job archives back into local storage.
@@ -21,7 +23,7 @@ Aquill is a source-available, local-first transcription and subtitle workbench. 
 - No packaged installer yet.
 - No cloud transcription or hosted SaaS mode.
 - No speaker diarization UI yet.
-- No full release tag yet.
+- No stable release yet.
 - No promise that huge media jobs are laptop-light.
 
 ## License
@@ -156,15 +158,17 @@ The first public alpha slice works:
 5. Run jobs through a local FastAPI server and React workbench.
 6. Persist job history in SQLite and reload it after API restarts.
 7. Edit transcript segments and regenerate TXT, JSON, SRT, and VTT.
-8. Paste known lyrics over rough song transcriptions and regenerate timed TXT, JSON, SRT, and VTT.
-9. Queue multiple files from the UI and process them sequentially.
-10. Retry, cancel queued or running jobs, delete, and open output folders.
-11. Inspect local Whisper model downloads and disk usage.
-12. Track progress messages, start time, and completion time for jobs.
-13. Export completed jobs as ZIP archives with manifest and available artifacts.
-14. Import validated job archives back into local D-drive storage as restored completed jobs.
-15. Smoke-test archive export/import round-trips against the running local API.
-16. Run backend, web, release posture, doctor, and optional live smoke checks from D-drive-safe scripts.
-17. Show active D-drive project, input, output, model, data, temp, and cache paths in the local UI.
-18. Preview archive metadata before importing restored jobs.
-19. Show the PolyForm Noncommercial license boundary in the local UI.
+8. Preview pasted known lyrics, apply them to rough song transcriptions, and regenerate timed TXT, JSON, SRT, and VTT.
+9. Back up original transcript/subtitle artifacts before lyrics alignment and restore them from the UI.
+10. Use a Song preset that defaults to `small`, English, local transcription, voice filtering, and int8 compute.
+11. Queue multiple files from the UI and process them sequentially.
+12. Retry, cancel queued or running jobs, delete, and open output folders.
+13. Inspect local Whisper model downloads and disk usage.
+14. Track progress messages, start time, and completion time for jobs.
+15. Export completed jobs as ZIP archives with manifest and available artifacts.
+16. Import validated job archives back into local D-drive storage as restored completed jobs.
+17. Smoke-test archive export/import round-trips against the running local API.
+18. Run backend, web, release posture, doctor, and optional live smoke checks from D-drive-safe scripts.
+19. Show active D-drive project, input, output, model, data, temp, and cache paths in the local UI.
+20. Preview archive metadata before importing restored jobs.
+21. Show the PolyForm Noncommercial license boundary in the local UI.
