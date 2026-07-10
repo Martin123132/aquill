@@ -2,6 +2,7 @@ import {
   Activity,
   Captions,
   Check,
+  Combine,
   Download,
   HardDrive,
   FileAudio,
@@ -12,17 +13,21 @@ import {
   Mic2,
   Play,
   Radio,
+  Redo2,
   RefreshCw,
+  Replace,
   RotateCcw,
   Save,
+  Scissors,
   Search,
   Scale,
   Trash2,
+  Undo2,
   Upload,
   Waves,
   XCircle
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type JobStatus = "queued" | "extracting" | "transcribing" | "writing" | "completed" | "failed" | "cancelled";
 type JobFilter = "all" | "active" | "completed" | "attention";
@@ -178,6 +183,11 @@ function App() {
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [transcript, setTranscript] = useState<Transcript | null>(null);
   const [draftSegments, setDraftSegments] = useState<TranscriptSegment[]>([]);
+  const [undoStack, setUndoStack] = useState<TranscriptSegment[][]>([]);
+  const [redoStack, setRedoStack] = useState<TranscriptSegment[][]>([]);
+  const [transcriptSearch, setTranscriptSearch] = useState("");
+  const [transcriptReplacement, setTranscriptReplacement] = useState("");
+  const [editorStatus, setEditorStatus] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -200,6 +210,10 @@ function App() {
   const [jobSearch, setJobSearch] = useState("");
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const [activePreset, setActivePreset] = useState<PresetMode>("standard");
+  const editBaselineRef = useRef<TranscriptSegment[] | null>(null);
+  const segmentCaretsRef = useRef(new Map<number, number>());
+  const segmentTextareasRef = useRef(new Map<number, HTMLTextAreaElement>());
+  const searchCursorRef = useRef({ segmentPosition: 0, offset: 0 });
 
   const activeJob = useMemo(
     () => jobs.find((job) => job.id === activeJobId) ?? jobs[0] ?? null,
@@ -236,9 +250,17 @@ function App() {
     });
   }, [jobFilter, jobSearch, jobs]);
   const transcriptIsDirty = useMemo(() => {
-    if (!transcript || draftSegments.length !== transcript.segments.length) return false;
-    return draftSegments.some((segment, index) => segment.text !== transcript.segments[index]?.text);
+    if (!transcript) return false;
+    return !segmentsEqual(draftSegments, transcript.segments);
   }, [draftSegments, transcript]);
+  const transcriptStructureIsDirty = useMemo(() => {
+    if (!transcript) return false;
+    return !segmentStructureEqual(draftSegments, transcript.segments);
+  }, [draftSegments, transcript]);
+  const transcriptTimingError = useMemo(
+    () => (transcriptStructureIsDirty ? validateSegmentTimings(draftSegments, transcript?.duration ?? null) : null),
+    [draftSegments, transcript?.duration, transcriptStructureIsDirty]
+  );
 
   useEffect(() => {
     void refreshJobs();
@@ -254,8 +276,7 @@ function App() {
 
   useEffect(() => {
     if (!activeJob || activeJob.status !== "completed" || !activeJob.transcript_url) {
-      setTranscript(null);
-      setDraftSegments([]);
+      setEditorTranscript(null);
       setSaveStatus(null);
       setLyricsStatus(null);
       setLyricsPreview(null);
@@ -263,6 +284,21 @@ function App() {
     }
     void loadTranscript(activeJob.transcript_url);
   }, [activeJob?.id, activeJob?.status, activeJob?.transcript_url]);
+
+  function setEditorTranscript(payload: Transcript | null, resetHistory = true) {
+    setTranscript(payload);
+    setDraftSegments(payload ? cloneSegments(payload.segments) : []);
+    editBaselineRef.current = null;
+    segmentCaretsRef.current.clear();
+    searchCursorRef.current = { segmentPosition: 0, offset: 0 };
+    setEditorStatus(null);
+    if (resetHistory) {
+      setUndoStack([]);
+      setRedoStack([]);
+      setTranscriptSearch("");
+      setTranscriptReplacement("");
+    }
+  }
 
   async function refreshJobs() {
     try {
@@ -303,8 +339,7 @@ function App() {
     const response = await fetch(url);
     if (!response.ok) return;
     const payload = (await response.json()) as Transcript;
-    setTranscript(payload);
-    setDraftSegments(payload.segments);
+    setEditorTranscript(payload);
     setSaveStatus(null);
     setLyricsStatus(null);
     setLyricsPreview(null);
@@ -320,10 +355,19 @@ function App() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          segments: draftSegments.map((segment) => ({
-            index: segment.index,
-            text: segment.text
-          }))
+          segments: draftSegments.map((segment) =>
+            transcriptStructureIsDirty
+              ? {
+                  index: segment.index,
+                  start: segment.start,
+                  end: segment.end,
+                  text: segment.text
+                }
+              : {
+                  index: segment.index,
+                  text: segment.text
+                }
+          )
         })
       });
       if (!response.ok) {
@@ -331,8 +375,7 @@ function App() {
         throw new Error(payload?.detail ?? "Transcript save failed.");
       }
       const payload = (await response.json()) as Transcript;
-      setTranscript(payload);
-      setDraftSegments(payload.segments);
+      setEditorTranscript(payload, false);
       setSaveStatus("Exports regenerated");
       await refreshJobs();
     } catch (caught) {
@@ -405,8 +448,7 @@ function App() {
         throw new Error(payload?.detail ?? "Lyrics alignment failed.");
       }
       const payload = (await response.json()) as LyricsAlignmentPayload;
-      setTranscript(payload.transcript);
-      setDraftSegments(payload.transcript.segments);
+      setEditorTranscript(payload.transcript);
       setLyricsDraft("");
       setLyricsPreview(null);
       setLyricsStatus(`${payload.line_count} timed lyric line${payload.line_count === 1 ? "" : "s"}`);
@@ -431,8 +473,7 @@ function App() {
         throw new Error(payload?.detail ?? "Original restore failed.");
       }
       const payload = (await response.json()) as LyricsRestorePayload;
-      setTranscript(payload.transcript);
-      setDraftSegments(payload.transcript.segments);
+      setEditorTranscript(payload.transcript);
       setLyricsDraft("");
       setLyricsPreview(null);
       setLyricsStatus(null);
@@ -501,9 +542,171 @@ function App() {
   }
 
   function updateDraftSegment(index: number, text: string) {
+    captureCurrentEditUndo();
     setDraftSegments((segments) =>
       segments.map((segment) => (segment.index === index ? { ...segment, text } : segment))
     );
+    setSaveStatus(null);
+  }
+
+  function updateSegmentTiming(index: number, field: "start" | "end", value: string) {
+    if (value === "") return;
+    const seconds = Number(value);
+    if (!Number.isFinite(seconds)) return;
+    captureCurrentEditUndo();
+    setDraftSegments((segments) =>
+      segments.map((segment) => (segment.index === index ? { ...segment, [field]: seconds } : segment))
+    );
+    setSaveStatus(null);
+  }
+
+  function rememberUndo(snapshot: TranscriptSegment[]) {
+    const saved = cloneSegments(snapshot);
+    setUndoStack((current) => {
+      if (current.length > 0 && segmentsEqual(current[current.length - 1], saved)) return current;
+      return [...current, saved].slice(-50);
+    });
+    setRedoStack([]);
+  }
+
+  function beginSegmentEdit() {
+    if (!editBaselineRef.current) editBaselineRef.current = cloneSegments(draftSegments);
+  }
+
+  function captureCurrentEditUndo() {
+    const baseline = editBaselineRef.current;
+    editBaselineRef.current = null;
+    if (baseline) rememberUndo(baseline);
+  }
+
+  function finishSegmentEdit() {
+    editBaselineRef.current = null;
+  }
+
+  function applyDraftSegments(nextSegments: TranscriptSegment[], status: string) {
+    const next = renumberSegments(nextSegments);
+    if (segmentsEqual(next, draftSegments)) return;
+    rememberUndo(draftSegments);
+    setDraftSegments(next);
+    segmentCaretsRef.current.clear();
+    searchCursorRef.current = { segmentPosition: 0, offset: 0 };
+    setEditorStatus(status);
+    setSaveStatus(null);
+  }
+
+  function undoTranscriptEdit() {
+    const previous = undoStack[undoStack.length - 1];
+    if (!previous) return;
+    editBaselineRef.current = null;
+    setUndoStack((current) => current.slice(0, -1));
+    setRedoStack((current) => [...current, cloneSegments(draftSegments)].slice(-50));
+    setDraftSegments(cloneSegments(previous));
+    setEditorStatus("Undid transcript edit");
+    setSaveStatus(null);
+  }
+
+  function redoTranscriptEdit() {
+    const next = redoStack[redoStack.length - 1];
+    if (!next) return;
+    editBaselineRef.current = null;
+    setRedoStack((current) => current.slice(0, -1));
+    setUndoStack((current) => [...current, cloneSegments(draftSegments)].slice(-50));
+    setDraftSegments(cloneSegments(next));
+    setEditorStatus("Redid transcript edit");
+    setSaveStatus(null);
+  }
+
+  function splitSegment(index: number) {
+    const position = draftSegments.findIndex((segment) => segment.index === index);
+    const segment = draftSegments[position];
+    if (!segment) return;
+
+    const rememberedCaret = segmentCaretsRef.current.get(index);
+    const splitAt =
+      rememberedCaret && rememberedCaret > 0 && rememberedCaret < segment.text.length
+        ? rememberedCaret
+        : bestSplitPosition(segment.text);
+    const before = segment.text.slice(0, splitAt).trim();
+    const after = segment.text.slice(splitAt).trim();
+    if (!before || !after) {
+      setEditorStatus("Place the cursor between words before splitting");
+      return;
+    }
+
+    const duration = segment.end - segment.start;
+    if (duration <= 0.002) {
+      setEditorStatus("This segment is too short to split");
+      return;
+    }
+    const ratio = Math.min(0.9, Math.max(0.1, splitAt / segment.text.length));
+    const splitTime = Math.min(
+      segment.end - 0.001,
+      Math.max(segment.start + 0.001, roundSeconds(segment.start + duration * ratio))
+    );
+    const next = [
+      ...draftSegments.slice(0, position),
+      { ...segment, end: splitTime, text: before },
+      { ...segment, index: segment.index + 1, start: splitTime, text: after },
+      ...draftSegments.slice(position + 1)
+    ];
+    applyDraftSegments(next, "Segment split");
+  }
+
+  function mergeSegmentWithPrevious(index: number) {
+    const position = draftSegments.findIndex((segment) => segment.index === index);
+    if (position <= 0) return;
+    const previous = draftSegments[position - 1];
+    const current = draftSegments[position];
+    const merged = {
+      ...previous,
+      end: current.end,
+      text: [previous.text.trim(), current.text.trim()].filter(Boolean).join(" ")
+    };
+    applyDraftSegments(
+      [...draftSegments.slice(0, position - 1), merged, ...draftSegments.slice(position + 1)],
+      "Segments merged"
+    );
+  }
+
+  function findNextTranscriptMatch() {
+    if (!transcriptSearch || draftSegments.length === 0) return;
+    const query = transcriptSearch.toLocaleLowerCase();
+    const cursor = searchCursorRef.current;
+    const attempts = draftSegments.length + (cursor.offset > 0 ? 1 : 0);
+    for (let step = 0; step < attempts; step += 1) {
+      const position = (cursor.segmentPosition + step) % draftSegments.length;
+      const segment = draftSegments[position];
+      const offset = step === 0 ? cursor.offset : 0;
+      const match = segment.text.toLocaleLowerCase().indexOf(query, offset);
+      if (match < 0) continue;
+      const textarea = segmentTextareasRef.current.get(segment.index);
+      textarea?.focus();
+      textarea?.setSelectionRange(match, match + transcriptSearch.length);
+      segmentCaretsRef.current.set(segment.index, match + transcriptSearch.length);
+      searchCursorRef.current = { segmentPosition: position, offset: match + transcriptSearch.length };
+      setEditorStatus(`Match in segment ${segment.index}`);
+      return;
+    }
+    searchCursorRef.current = { segmentPosition: 0, offset: 0 };
+    setEditorStatus("No more matches");
+  }
+
+  function replaceAllTranscriptMatches() {
+    if (!transcriptSearch) return;
+    const expression = new RegExp(escapeRegularExpression(transcriptSearch), "gi");
+    let replacements = 0;
+    const next = draftSegments.map((segment) => ({
+      ...segment,
+      text: segment.text.replace(expression, () => {
+        replacements += 1;
+        return transcriptReplacement;
+      })
+    }));
+    if (replacements === 0) {
+      setEditorStatus("No matches to replace");
+      return;
+    }
+    applyDraftSegments(next, `${replacements} replacement${replacements === 1 ? "" : "s"}`);
   }
 
   function removeSelectedFile(fileToRemove: File) {
@@ -1004,7 +1207,7 @@ function App() {
               </button>
               <button
                 className="secondary-button"
-                disabled={!transcriptIsDirty || isSavingTranscript}
+                disabled={!transcriptIsDirty || isSavingTranscript || Boolean(transcriptTimingError)}
                 onClick={saveTranscript}
                 type="button"
               >
@@ -1015,6 +1218,73 @@ function App() {
           </div>
           {transcript ? (
             <>
+              <div className="transcript-editor-toolbar" data-testid="transcript-editor-toolbar">
+                <div className="history-actions">
+                  <button
+                    className="ghost-button icon-button"
+                    type="button"
+                    title="Undo transcript edit"
+                    aria-label="Undo transcript edit"
+                    disabled={undoStack.length === 0}
+                    onClick={undoTranscriptEdit}
+                  >
+                    <Undo2 size={16} aria-hidden />
+                  </button>
+                  <button
+                    className="ghost-button icon-button"
+                    type="button"
+                    title="Redo transcript edit"
+                    aria-label="Redo transcript edit"
+                    disabled={redoStack.length === 0}
+                    onClick={redoTranscriptEdit}
+                  >
+                    <Redo2 size={16} aria-hidden />
+                  </button>
+                </div>
+                <label className="editor-search-field">
+                  <span>Find</span>
+                  <input
+                    aria-label="Find in transcript"
+                    value={transcriptSearch}
+                    onChange={(event) => {
+                      setTranscriptSearch(event.target.value);
+                      searchCursorRef.current = { segmentPosition: 0, offset: 0 };
+                      setEditorStatus(null);
+                    }}
+                  />
+                </label>
+                <label className="editor-search-field">
+                  <span>Replace</span>
+                  <input
+                    aria-label="Replace in transcript"
+                    value={transcriptReplacement}
+                    onChange={(event) => setTranscriptReplacement(event.target.value)}
+                  />
+                </label>
+                <button
+                  className="ghost-button editor-command"
+                  type="button"
+                  disabled={!transcriptSearch}
+                  onClick={findNextTranscriptMatch}
+                >
+                  <Search size={16} aria-hidden />
+                  Find next
+                </button>
+                <button
+                  className="secondary-button editor-command"
+                  type="button"
+                  disabled={!transcriptSearch}
+                  onClick={replaceAllTranscriptMatches}
+                >
+                  <Replace size={16} aria-hidden />
+                  Replace all
+                </button>
+                {transcriptTimingError || editorStatus ? (
+                  <span className={`editor-status ${transcriptTimingError ? "error" : ""}`}>
+                    {transcriptTimingError ?? editorStatus}
+                  </span>
+                ) : null}
+              </div>
               <div className="lyrics-tools" data-testid="lyrics-tools">
                 <label className="lyrics-field">
                   <span>Lyrics</span>
@@ -1062,22 +1332,78 @@ function App() {
               ) : null}
               <div className="transcript-layout">
                 <div className="transcript-copy">
-                  {draftSegments.map((segment) => (
+                  {draftSegments.map((segment, position) => (
                     <div className="transcript-row" key={segment.index}>
-                      <time>{formatTime(segment.start)}</time>
+                      <div className="segment-time-editor">
+                        <strong>#{segment.index}</strong>
+                        <label>
+                          <span>Start</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={transcript.duration ?? undefined}
+                            step={0.05}
+                            value={segment.start}
+                            aria-label={`Segment ${segment.index} start time in seconds`}
+                            onFocus={beginSegmentEdit}
+                            onBlur={finishSegmentEdit}
+                            onChange={(event) => updateSegmentTiming(segment.index, "start", event.target.value)}
+                          />
+                        </label>
+                        <label>
+                          <span>End</span>
+                          <input
+                            type="number"
+                            min={0}
+                            max={transcript.duration ?? undefined}
+                            step={0.05}
+                            value={segment.end}
+                            aria-label={`Segment ${segment.index} end time in seconds`}
+                            onFocus={beginSegmentEdit}
+                            onBlur={finishSegmentEdit}
+                            onChange={(event) => updateSegmentTiming(segment.index, "end", event.target.value)}
+                          />
+                        </label>
+                      </div>
                       <textarea
                         aria-label={`Transcript segment ${segment.index}`}
                         value={segment.text}
+                        ref={(element) => {
+                          if (element) segmentTextareasRef.current.set(segment.index, element);
+                          else segmentTextareasRef.current.delete(segment.index);
+                        }}
+                        onFocus={beginSegmentEdit}
+                        onBlur={finishSegmentEdit}
+                        onSelect={(event) => segmentCaretsRef.current.set(segment.index, event.currentTarget.selectionStart)}
                         onChange={(event) => updateDraftSegment(segment.index, event.target.value)}
                         rows={2}
                       />
+                      <div className="segment-actions">
+                        <button
+                          type="button"
+                          title="Split at cursor"
+                          aria-label={`Split segment ${segment.index}`}
+                          onClick={() => splitSegment(segment.index)}
+                        >
+                          <Scissors size={16} aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          title="Merge with previous"
+                          aria-label={`Merge segment ${segment.index} with previous`}
+                          disabled={position === 0}
+                          onClick={() => mergeSegmentWithPrevious(segment.index)}
+                        >
+                          <Combine size={16} aria-hidden />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
                 <aside className="meta-strip">
                   <Metric label="Language" value={transcript.language ?? "auto"} />
                   <Metric label="Duration" value={transcript.duration ? formatTime(transcript.duration) : "unknown"} />
-                  <Metric label="Segments" value={String(transcript.segments.length)} />
+                  <Metric label="Segments" value={String(draftSegments.length)} />
                 </aside>
               </div>
             </>
@@ -1215,6 +1541,77 @@ function isZipArchive(file: File) {
 
 function totalSelectedBytes(files: File[]) {
   return files.reduce((total, file) => total + file.size, 0);
+}
+
+function cloneSegments(segments: TranscriptSegment[]) {
+  return segments.map((segment) => ({ ...segment }));
+}
+
+function segmentsEqual(left: TranscriptSegment[], right: TranscriptSegment[]) {
+  return (
+    left.length === right.length &&
+    left.every((segment, index) => {
+      const other = right[index];
+      return (
+        other !== undefined &&
+        segment.index === other.index &&
+        segment.start === other.start &&
+        segment.end === other.end &&
+        segment.text === other.text
+      );
+    })
+  );
+}
+
+function segmentStructureEqual(left: TranscriptSegment[], right: TranscriptSegment[]) {
+  return (
+    left.length === right.length &&
+    left.every((segment, index) => {
+      const other = right[index];
+      return other !== undefined && segment.start === other.start && segment.end === other.end;
+    })
+  );
+}
+
+function renumberSegments(segments: TranscriptSegment[]) {
+  return segments.map((segment, index) => ({ ...segment, index: index + 1 }));
+}
+
+function validateSegmentTimings(segments: TranscriptSegment[], duration: number | null) {
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    if (!Number.isFinite(segment.start) || !Number.isFinite(segment.end) || segment.start < 0) {
+      return `Segment ${index + 1} has an invalid time`;
+    }
+    if (segment.end <= segment.start) return `Segment ${index + 1} must end after it starts`;
+    if (index > 0 && segment.start < segments[index - 1].end) {
+      return `Segment ${index + 1} overlaps segment ${index}`;
+    }
+    if (duration !== null && segment.end > duration + 0.001) {
+      return `Segment ${index + 1} ends after the media duration`;
+    }
+  }
+  return null;
+}
+
+function bestSplitPosition(text: string) {
+  if (text.length < 2) return 0;
+  const midpoint = Math.floor(text.length / 2);
+  for (let distance = 0; distance < text.length; distance += 1) {
+    const right = midpoint + distance;
+    if (right > 0 && right < text.length && /\s/.test(text[right])) return right;
+    const left = midpoint - distance;
+    if (left > 0 && left < text.length && /\s/.test(text[left])) return left;
+  }
+  return midpoint;
+}
+
+function roundSeconds(seconds: number) {
+  return Math.round(seconds * 1000) / 1000;
+}
+
+function escapeRegularExpression(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function loadSettings(): Settings {

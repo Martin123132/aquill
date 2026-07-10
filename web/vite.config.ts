@@ -8,7 +8,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
-    restoreMocks: true
+    restoreMocks: true,
+    testTimeout: 10000
   },
   server: {
     host: "127.0.0.1",

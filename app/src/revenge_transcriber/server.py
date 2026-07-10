@@ -280,11 +280,13 @@ def get_transcript(job_id: str) -> JSONResponse:
 
 class SegmentUpdate(BaseModel):
     index: int = Field(ge=1)
+    start: float | None = Field(default=None, ge=0)
+    end: float | None = Field(default=None, gt=0)
     text: str
 
 
 class TranscriptUpdate(BaseModel):
-    segments: list[SegmentUpdate]
+    segments: list[SegmentUpdate] = Field(min_length=1)
 
 
 class LyricsAlignmentRequest(BaseModel):
@@ -300,26 +302,7 @@ def update_transcript(job_id: str, update: TranscriptUpdate) -> JSONResponse:
         raise HTTPException(status_code=404, detail="Transcript JSON is not available.")
 
     current = read_json(transcript_path)
-    edits = {segment.index: segment.text.strip() for segment in update.segments}
-    existing_indexes = {segment.index for segment in current.segments}
-    unknown_indexes = sorted(set(edits) - existing_indexes)
-    if unknown_indexes:
-        raise HTTPException(status_code=400, detail=f"Unknown segment index: {unknown_indexes[0]}")
-
-    edited = TranscriptResult(
-        source=current.source,
-        language=current.language,
-        duration=current.duration,
-        segments=[
-            TranscriptSegment(
-                index=segment.index,
-                start=segment.start,
-                end=segment.end,
-                text=edits.get(segment.index, segment.text).strip(),
-            )
-            for segment in current.segments
-        ],
-    )
+    edited = apply_transcript_update(current, update)
     write_all_outputs(edited, output_dir)
     update_job_status(
         job.id,
@@ -329,6 +312,66 @@ def update_transcript(job_id: str, update: TranscriptUpdate) -> JSONResponse:
         progress_message="Transcript edits saved and exports regenerated.",
     )
     return JSONResponse(json.loads(transcript_path.read_text(encoding="utf-8")))
+
+
+def apply_transcript_update(current: TranscriptResult, update: TranscriptUpdate) -> TranscriptResult:
+    indexes = [segment.index for segment in update.segments]
+    if len(indexes) != len(set(indexes)):
+        raise HTTPException(status_code=400, detail="Transcript update contains duplicate segment indexes.")
+
+    has_timing = [segment.start is not None or segment.end is not None for segment in update.segments]
+    if any(has_timing) and not all(
+        segment.start is not None and segment.end is not None for segment in update.segments
+    ):
+        raise HTTPException(status_code=400, detail="Every structural segment update must include start and end times.")
+
+    if not any(has_timing):
+        edits = {segment.index: segment.text.strip() for segment in update.segments}
+        existing_indexes = {segment.index for segment in current.segments}
+        unknown_indexes = sorted(set(edits) - existing_indexes)
+        if unknown_indexes:
+            raise HTTPException(status_code=400, detail=f"Unknown segment index: {unknown_indexes[0]}")
+        segments = [
+            TranscriptSegment(
+                index=segment.index,
+                start=segment.start,
+                end=segment.end,
+                text=edits.get(segment.index, segment.text).strip(),
+            )
+            for segment in current.segments
+        ]
+    else:
+        segments = []
+        previous_end: float | None = None
+        for index, segment in enumerate(update.segments, start=1):
+            assert segment.start is not None and segment.end is not None
+            start = round(segment.start, 3)
+            end = round(segment.end, 3)
+            if end <= start:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Segment {index} end time must be greater than its start time.",
+                )
+            if previous_end is not None and start < previous_end:
+                raise HTTPException(status_code=400, detail=f"Segment {index} overlaps the previous segment.")
+            if current.duration is not None and end > current.duration + 0.001:
+                raise HTTPException(status_code=400, detail=f"Segment {index} ends after the media duration.")
+            segments.append(
+                TranscriptSegment(
+                    index=index,
+                    start=start,
+                    end=end,
+                    text=segment.text.strip(),
+                )
+            )
+            previous_end = end
+
+    return TranscriptResult(
+        source=current.source,
+        language=current.language,
+        duration=current.duration,
+        segments=segments,
+    )
 
 
 @app.post("/api/jobs/{job_id}/lyrics/preview")
