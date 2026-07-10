@@ -11,22 +11,8 @@ if (-not (Test-Path $NodeModules)) {
 
 Get-Command npm.cmd -ErrorAction Stop | Out-Null
 
-Write-Host ""
-Write-Host "Web quality check"
-Write-Host "  Project: $env:TRANSCRIBER_ROOT"
-Write-Host "  Web:     $WebRoot"
-Write-Host ""
-
 Push-Location $WebRoot
 try {
-  Write-Host "1/2 Running frontend tests..."
-  npm.cmd run test
-  if ($LASTEXITCODE -ne 0) {
-    throw "Web tests failed with exit code $LASTEXITCODE."
-  }
-
-  Write-Host ""
-  Write-Host "2/2 Building production interface..."
   npm.cmd run build
   if ($LASTEXITCODE -ne 0) {
     throw "Web build failed with exit code $LASTEXITCODE."
@@ -35,6 +21,3 @@ try {
 finally {
   Pop-Location
 }
-
-Write-Host ""
-Write-Host "Web quality check passed."

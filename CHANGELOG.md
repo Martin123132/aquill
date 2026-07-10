@@ -4,7 +4,24 @@ All notable local release-candidate changes for Aquill are tracked here.
 
 ## Unreleased
 
-No unreleased changes yet.
+### Added
+
+- Serve the compiled React workbench and FastAPI API from one local process at `http://127.0.0.1:5190`.
+- Keep the Vite/API two-process workflow available through `scripts\start-dev.ps1` for development.
+- Recover queued or running jobs during API startup, remove abandoned temporary WAV files, and preserve original inputs for retry.
+- Add focused Vitest/Testing Library coverage for transcript and lyrics editing, archive import, interrupted-job retry, and upload errors.
+
+### Changed
+
+- Make `scripts\start-local.ps1` build the production interface, start one hidden local service, and open the app by default.
+- Make `scripts\quality-web.ps1` run frontend tests before the production build.
+- Make the live UI smoke inspect the compiled bundle and same-origin API rather than Vite source files.
+
+### Verified
+
+- Backend quality passes with 23 fake-driven tests.
+- Frontend quality passes with 4 component workflow tests and a production build.
+- The compiled UI and API pass the live smoke from the same port with all runtime storage under the D-drive checkout.
 
 ## 0.1.0-alpha - 2026-06-29
 

@@ -6,7 +6,7 @@ Aquill is a source-available, local-first transcription and subtitle workbench. 
 
 ## What It Does
 
-- Runs a local FastAPI backend and React/Vite workbench.
+- Runs the compiled React workbench and FastAPI backend in one local process.
 - Queues audio or video files for local transcription with `faster-whisper`.
 - Exports TXT, JSON, SRT, and VTT.
 - Lets you edit transcript segments and regenerate exports.
@@ -70,10 +70,18 @@ Open:
 http://127.0.0.1:5190/
 ```
 
-Stop both local servers:
+`start-local.ps1` builds the interface, starts Aquill, and opens the address in the default browser. Pass `-NoBrowser` when you only want to start the process.
+
+Stop Aquill:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
+```
+
+For frontend development with Vite hot reload and the API on port `8091`, use:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
 ```
 
 ## CLI Use
@@ -172,3 +180,6 @@ The first public alpha slice works:
 19. Show active D-drive project, input, output, model, data, temp, and cache paths in the local UI.
 20. Preview archive metadata before importing restored jobs.
 21. Show the PolyForm Noncommercial license boundary in the local UI.
+22. Serve the compiled workbench and API from one local process on port `5190`.
+23. Recover interrupted jobs after an app restart, clean their abandoned temporary audio, and leave them ready to retry.
+24. Run automated browser-component tests for uploads, retries, transcript/lyrics editing, and archive import.

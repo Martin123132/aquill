@@ -1,7 +1,8 @@
 param(
-  [string]$ApiHost = "127.0.0.1",
-  [int]$ApiPort = 8091,
-  [int]$WebPort = 5190
+  [string]$HostName = "127.0.0.1",
+  [int]$Port = 5190,
+  [switch]$NoBrowser,
+  [switch]$SkipBuild
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,12 +13,8 @@ $ProjectRoot = $env:TRANSCRIBER_ROOT
 $TmpRoot = Join-Path $ProjectRoot "tmp"
 $PidFile = Join-Path $TmpRoot "local-server-pids.json"
 $StopScript = Join-Path $ProjectRoot "scripts\stop-local.ps1"
-$ApiUrl = "http://$ApiHost`:$ApiPort"
-$WebUrl = "http://127.0.0.1:$WebPort"
-
-if ($WebPort -ne 5190) {
-  throw "The current web wrapper uses the fixed Vite port 5190."
-}
+$BuildScript = Join-Path $ProjectRoot "scripts\build-web.ps1"
+$AppUrl = "http://$HostName`:$Port"
 
 function Wait-HttpOk {
   param(
@@ -39,102 +36,74 @@ function Wait-HttpOk {
   throw "Timed out waiting for $Uri"
 }
 
-function Get-NonProjectListeners {
-  $Connections = Get-NetTCPConnection -LocalPort $ApiPort, $WebPort -State Listen -ErrorAction SilentlyContinue
-  $Blocked = @()
+& $StopScript -ApiPort 8091 -WebPort $Port -Quiet
 
-  foreach ($Connection in @($Connections)) {
-    $Process = Get-CimInstance Win32_Process -Filter "ProcessId = $($Connection.OwningProcess)" -ErrorAction SilentlyContinue
-    if (-not $Process -or -not $Process.CommandLine -or -not $Process.CommandLine.Contains($ProjectRoot)) {
-      $Blocked += $Connection
-    }
-  }
-
-  return $Blocked
+$Connection = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+if ($Connection) {
+  throw "Required local port $Port is already in use by PID $($Connection.OwningProcess)."
 }
 
-$ExistingProjectListeners = Get-NetTCPConnection -LocalPort $ApiPort, $WebPort -State Listen -ErrorAction SilentlyContinue | Where-Object {
-  $Process = Get-CimInstance Win32_Process -Filter "ProcessId = $($_.OwningProcess)" -ErrorAction SilentlyContinue
-  $Process -and $Process.CommandLine -and $Process.CommandLine.Contains($ProjectRoot)
+if (-not $SkipBuild) {
+  Write-Output "Building Aquill's local interface..."
+  & $BuildScript
 }
 
-if ($ExistingProjectListeners) {
-  Write-Output "Stopping existing Aquill local servers first..."
-  & $StopScript -ApiPort $ApiPort -WebPort $WebPort -Quiet
-}
-
-$BlockedListeners = Get-NonProjectListeners
-if ($BlockedListeners) {
-  $BlockedSummary = $BlockedListeners | ForEach-Object { "$($_.LocalAddress):$($_.LocalPort) owned by PID $($_.OwningProcess)" }
-  throw "Required local port is already in use by another process: $($BlockedSummary -join '; ')"
+$WebIndex = Join-Path $ProjectRoot "web\dist\index.html"
+if (-not (Test-Path -LiteralPath $WebIndex)) {
+  throw "Built web interface not found. Run $BuildScript first."
 }
 
 $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$ApiOut = Join-Path $TmpRoot "local-api-$Stamp.out.log"
-$ApiErr = Join-Path $TmpRoot "local-api-$Stamp.err.log"
-$WebOut = Join-Path $TmpRoot "local-web-$Stamp.out.log"
-$WebErr = Join-Path $TmpRoot "local-web-$Stamp.err.log"
-
-$ApiProcess = $null
-$WebProcess = $null
+$ApiOut = Join-Path $TmpRoot "local-app-$Stamp.out.log"
+$ApiErr = Join-Path $TmpRoot "local-app-$Stamp.err.log"
+$AppProcess = $null
 
 try {
-  $ApiProcess = Start-Process -FilePath "powershell.exe" -ArgumentList @(
+  $AppProcess = Start-Process -FilePath "powershell.exe" -ArgumentList @(
     "-NoProfile",
     "-ExecutionPolicy",
     "Bypass",
     "-File",
     (Join-Path $ProjectRoot "scripts\serve-api.ps1"),
     "--host",
-    $ApiHost,
+    $HostName,
     "--port",
-    [string]$ApiPort
+    [string]$Port
   ) -WorkingDirectory $ProjectRoot -WindowStyle Hidden -RedirectStandardOutput $ApiOut -RedirectStandardError $ApiErr -PassThru
 
-  $WebProcess = Start-Process -FilePath "powershell.exe" -ArgumentList @(
-    "-NoProfile",
-    "-ExecutionPolicy",
-    "Bypass",
-    "-File",
-    (Join-Path $ProjectRoot "scripts\serve-web.ps1")
-  ) -WorkingDirectory $ProjectRoot -WindowStyle Hidden -RedirectStandardOutput $WebOut -RedirectStandardError $WebErr -PassThru
-
   $State = [pscustomobject]@{
+    mode = "single-process"
     project_root = $ProjectRoot
     started_at = (Get-Date).ToString("o")
-    api_url = $ApiUrl
-    web_url = $WebUrl
+    api_url = $AppUrl
+    web_url = $AppUrl
     logs = [pscustomobject]@{
-      api_stdout = $ApiOut
-      api_stderr = $ApiErr
-      web_stdout = $WebOut
-      web_stderr = $WebErr
+      app_stdout = $ApiOut
+      app_stderr = $ApiErr
     }
     processes = @(
-      [pscustomobject]@{ name = "api-wrapper"; id = $ApiProcess.Id },
-      [pscustomobject]@{ name = "web-wrapper"; id = $WebProcess.Id }
+      [pscustomobject]@{ name = "app-wrapper"; id = $AppProcess.Id }
     )
   }
   $State | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $PidFile -Encoding UTF8
 
-  Wait-HttpOk -Uri "$ApiUrl/api/health"
-  Wait-HttpOk -Uri "$WebUrl/"
+  Wait-HttpOk -Uri "$AppUrl/api/health"
+  Wait-HttpOk -Uri "$AppUrl/"
 }
 catch {
-  & $StopScript -ApiPort $ApiPort -WebPort $WebPort -Quiet
+  & $StopScript -ApiPort 8091 -WebPort $Port -Quiet
   throw
 }
 
 Write-Output ""
-Write-Output "Aquill is running locally."
-Write-Output "  API: $ApiUrl"
-Write-Output "  Web: $WebUrl"
-Write-Output "  PID file: $PidFile"
-Write-Output "  Logs:"
-Write-Output "    $ApiOut"
-Write-Output "    $ApiErr"
-Write-Output "    $WebOut"
-Write-Output "    $WebErr"
+Write-Output "Aquill is running locally in one process."
+Write-Output "  App: $AppUrl"
+Write-Output "  Logs: $ApiOut"
+Write-Output "        $ApiErr"
 Write-Output ""
 Write-Output "Stop with:"
 Write-Output "  $ProjectRoot\scripts\stop-local.ps1"
+
+if (-not $NoBrowser) {
+  Start-Process -FilePath $AppUrl | Out-Null
+}
