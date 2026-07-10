@@ -469,6 +469,113 @@ class BackendQualityTests(unittest.TestCase):
 
         self.assertEqual(lines, ["First real line", "Second real line"])
 
+    def test_transcript_update_supports_structural_and_timing_edits(self) -> None:
+        job = self._insert_job(f"test-editor-{uuid.uuid4().hex}", "completed")
+        output_dir = Path(job.output_dir)
+        write_all_outputs(
+            TranscriptResult(
+                source=job.input_path,
+                language="en",
+                duration=8.0,
+                segments=[
+                    TranscriptSegment(index=1, start=0.0, end=4.0, text="First rough line"),
+                    TranscriptSegment(index=2, start=4.0, end=8.0, text="Second rough line"),
+                ],
+            ),
+            output_dir,
+        )
+
+        response = server.update_transcript(
+            job.id,
+            server.TranscriptUpdate(
+                segments=[
+                    server.SegmentUpdate(index=8, start=0.0, end=2.25, text="First corrected"),
+                    server.SegmentUpdate(index=3, start=2.25, end=4.0, text="line"),
+                    server.SegmentUpdate(index=4, start=4.0, end=8.0, text="Second corrected line"),
+                ]
+            ),
+        )
+
+        payload = json.loads(response.body)
+        self.assertEqual([segment["index"] for segment in payload["segments"]], [1, 2, 3])
+        self.assertEqual([segment["start"] for segment in payload["segments"]], [0.0, 2.25, 4.0])
+        self.assertEqual(payload["text"], "First corrected\nline\nSecond corrected line")
+        self.assertIn("00:00:02,250 --> 00:00:04,000", (output_dir / "subtitles.srt").read_text(encoding="utf-8"))
+        self.assertIn("First corrected", (output_dir / "transcript.txt").read_text(encoding="utf-8"))
+        self.assertEqual(
+            server.require_job(job.id).progress_message,
+            "Transcript edits saved and exports regenerated.",
+        )
+
+    def test_transcript_update_rejects_invalid_timing_without_rewriting_outputs(self) -> None:
+        job = self._insert_job(f"test-editor-invalid-{uuid.uuid4().hex}", "completed")
+        output_dir = Path(job.output_dir)
+        original = TranscriptResult(
+            source=job.input_path,
+            language="en",
+            duration=8.0,
+            segments=[
+                TranscriptSegment(index=1, start=0.0, end=4.0, text="First line"),
+                TranscriptSegment(index=2, start=4.0, end=8.0, text="Second line"),
+            ],
+        )
+        write_all_outputs(original, output_dir)
+        original_json = (output_dir / "transcript.json").read_text(encoding="utf-8")
+
+        invalid_updates = [
+            (
+                [
+                    server.SegmentUpdate(index=1, start=0.0, end=5.0, text="First"),
+                    server.SegmentUpdate(index=2, start=4.0, end=8.0, text="Overlap"),
+                ],
+                "overlaps",
+            ),
+            ([server.SegmentUpdate(index=1, start=2.0, end=2.0, text="Zero")], "greater than"),
+            ([server.SegmentUpdate(index=1, start=0.0, end=8.5, text="Too long")], "media duration"),
+            (
+                [
+                    server.SegmentUpdate(index=1, start=0.0, end=4.0, text="First"),
+                    server.SegmentUpdate(index=1, start=4.0, end=8.0, text="Duplicate"),
+                ],
+                "duplicate",
+            ),
+            (
+                [
+                    server.SegmentUpdate(index=1, start=0.0, end=4.0, text="Timed"),
+                    server.SegmentUpdate(index=2, text="Missing timing"),
+                ],
+                "must include start and end",
+            ),
+        ]
+        for segments, message in invalid_updates:
+            with self.subTest(message=message):
+                with self.assertRaises(Exception) as raised:
+                    server.update_transcript(job.id, server.TranscriptUpdate(segments=segments))
+                self.assertEqual(getattr(raised.exception, "status_code", None), 400)
+                self.assertIn(message, str(getattr(raised.exception, "detail", "")))
+                self.assertEqual((output_dir / "transcript.json").read_text(encoding="utf-8"), original_json)
+
+    def test_transcript_update_keeps_text_only_clients_compatible(self) -> None:
+        job = self._insert_job(f"test-editor-legacy-{uuid.uuid4().hex}", "completed")
+        output_dir = Path(job.output_dir)
+        write_all_outputs(
+            TranscriptResult(
+                source=job.input_path,
+                language="en",
+                duration=4.0,
+                segments=[TranscriptSegment(index=1, start=0.0, end=4.0, text="Rough text")],
+            ),
+            output_dir,
+        )
+
+        server.update_transcript(
+            job.id,
+            server.TranscriptUpdate(segments=[server.SegmentUpdate(index=1, text="Corrected text")]),
+        )
+
+        edited = read_json(output_dir / "transcript.json")
+        self.assertEqual(edited.segments[0], TranscriptSegment(index=1, start=0.0, end=4.0, text="Corrected text"))
+
     def test_lyrics_alignment_distributes_more_lines_than_segments(self) -> None:
         base = TranscriptResult(
             source="song.wav",

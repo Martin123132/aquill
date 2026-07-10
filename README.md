@@ -9,7 +9,7 @@ Aquill is a source-available, local-first transcription and subtitle workbench. 
 - Runs the compiled React workbench and FastAPI backend in one local process.
 - Queues audio or video files for local transcription with `faster-whisper`.
 - Exports TXT, JSON, SRT, and VTT.
-- Lets you edit transcript segments and regenerate exports.
+- Lets you edit text and timing, split or merge segments, find/replace, undo/redo, and regenerate exports.
 - Previews and applies pasted known lyrics into timed transcript and subtitle exports.
 - Backs up rough song transcripts before lyrics alignment so originals can be restored.
 - Offers a Song preset with safer defaults for music transcription.
@@ -183,3 +183,4 @@ The first public alpha slice works:
 22. Serve the compiled workbench and API from one local process on port `5190`.
 23. Recover interrupted jobs after an app restart, clean their abandoned temporary audio, and leave them ready to retry.
 24. Run automated browser-component tests for uploads, retries, transcript/lyrics editing, and archive import.
+25. Split and merge transcript cues, edit start/end times, find and replace text, and undo or redo local edits before saving regenerated exports.

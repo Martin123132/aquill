@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -76,6 +76,30 @@ function routeBaseRequests(url: string, jobs: unknown[], method = "GET") {
   return null;
 }
 
+type SavedSegment = {
+  index: number;
+  start?: number;
+  end?: number;
+  text: string;
+};
+
+function transcriptFromSave(segments: SavedSegment[]) {
+  const savedSegments = segments.map((segment, position) => {
+    const original = TRANSCRIPT.segments.find((candidate) => candidate.index === segment.index);
+    return {
+      index: position + 1,
+      start: segment.start ?? original?.start ?? 0,
+      end: segment.end ?? original?.end ?? 0,
+      text: segment.text
+    };
+  });
+  return {
+    ...TRANSCRIPT,
+    text: savedSegments.map((segment) => segment.text).join("\n"),
+    segments: savedSegments
+  };
+}
+
 describe("Aquill workbench", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
@@ -97,16 +121,8 @@ describe("Aquill workbench", () => {
       if (base) return base;
       if (url === job.transcript_url && !init?.method) return jsonResponse(TRANSCRIPT);
       if (url === "/api/jobs/job-1/transcript" && init?.method === "PUT") {
-        const request = JSON.parse(String(init.body)) as { segments: { index: number; text: string }[] };
-        const edited = {
-          ...TRANSCRIPT,
-          text: request.segments.map((segment) => segment.text).join(" "),
-          segments: TRANSCRIPT.segments.map((segment) => ({
-            ...segment,
-            text: request.segments.find((edit) => edit.index === segment.index)?.text ?? segment.text
-          }))
-        };
-        return jsonResponse(edited);
+        const request = JSON.parse(String(init.body)) as { segments: SavedSegment[] };
+        return jsonResponse(transcriptFromSave(request.segments));
       }
       if (url === "/api/jobs/job-1/lyrics/preview") {
         return jsonResponse({ line_count: 2, transcript: alignedTranscript, has_original_transcript: false });
@@ -142,6 +158,72 @@ describe("Aquill workbench", () => {
       "/api/jobs/job-1/lyrics",
       expect.objectContaining({ method: "POST" })
     );
+  });
+
+  it("splits, merges, retimes, replaces, and undoes transcript segments", async () => {
+    const job = makeJob();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const base = routeBaseRequests(url, [job], init?.method);
+      if (base) return base;
+      if (url === job.transcript_url && !init?.method) return jsonResponse(TRANSCRIPT);
+      if (url === "/api/jobs/job-1/transcript" && init?.method === "PUT") {
+        const request = JSON.parse(String(init.body)) as { segments: SavedSegment[] };
+        return jsonResponse(transcriptFromSave(request.segments));
+      }
+      throw new Error(`Unhandled request: ${init?.method ?? "GET"} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<App />);
+
+    let firstSegment = (await screen.findByLabelText("Transcript segment 1")) as HTMLTextAreaElement;
+    firstSegment.focus();
+    firstSegment.setSelectionRange(5, 5);
+    fireEvent.select(firstSegment);
+    await user.click(screen.getByRole("button", { name: "Split segment 1" }));
+    expect(await screen.findByLabelText("Transcript segment 3")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Merge segment 2 with previous" }));
+    await waitFor(() => expect(screen.queryByLabelText("Transcript segment 3")).not.toBeInTheDocument());
+
+    firstSegment = screen.getByLabelText("Transcript segment 1") as HTMLTextAreaElement;
+    firstSegment.focus();
+    firstSegment.setSelectionRange(5, 5);
+    fireEvent.select(firstSegment);
+    await user.click(screen.getByRole("button", { name: "Split segment 1" }));
+
+    const firstEnd = screen.getByLabelText("Segment 1 end time in seconds");
+    const splitEnd = Number((firstEnd as HTMLInputElement).value);
+    fireEvent.focus(firstEnd);
+    fireEvent.change(firstEnd, { target: { value: "1" } });
+    expect(screen.getByRole("button", { name: "Undo transcript edit" })).toBeEnabled();
+    await user.click(screen.getByRole("button", { name: "Undo transcript edit" }));
+    expect(firstEnd).toHaveValue(splitEnd);
+    await user.click(screen.getByRole("button", { name: "Redo transcript edit" }));
+    expect(firstEnd).toHaveValue(1);
+
+    await user.type(screen.getByLabelText("Find in transcript"), "rough");
+    await user.type(screen.getByLabelText("Replace in transcript"), "clean");
+    await user.click(screen.getByRole("button", { name: "Replace all" }));
+    expect(await screen.findByText("2 replacements")).toBeInTheDocument();
+    expect(screen.getByLabelText("Transcript segment 2")).toHaveValue("clean line.");
+
+    await user.click(screen.getByRole("button", { name: "Undo transcript edit" }));
+    expect(screen.getByLabelText("Transcript segment 2")).toHaveValue("rough line.");
+    await user.click(screen.getByRole("button", { name: "Redo transcript edit" }));
+    expect(screen.getByLabelText("Transcript segment 2")).toHaveValue("clean line.");
+
+    await user.click(screen.getByRole("button", { name: "Save edits" }));
+    expect(await screen.findByText("Exports regenerated")).toBeInTheDocument();
+    const saveCall = fetchMock.mock.calls.find(
+      ([url, init]) => String(url) === "/api/jobs/job-1/transcript" && init?.method === "PUT"
+    );
+    expect(saveCall).toBeDefined();
+    const savedRequest = JSON.parse(String(saveCall?.[1]?.body)) as { segments: SavedSegment[] };
+    expect(savedRequest.segments).toHaveLength(3);
+    expect(savedRequest.segments[0]).toEqual(expect.objectContaining({ end: 1, text: "First" }));
+    expect(savedRequest.segments[1]).toEqual(expect.objectContaining({ text: "clean line." }));
   });
 
   it("previews and imports an Aquill archive", async () => {

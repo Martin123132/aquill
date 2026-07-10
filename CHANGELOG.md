@@ -10,6 +10,8 @@ All notable local release-candidate changes for Aquill are tracked here.
 - Keep the Vite/API two-process workflow available through `scripts\start-dev.ps1` for development.
 - Recover queued or running jobs during API startup, remove abandoned temporary WAV files, and preserve original inputs for retry.
 - Add focused Vitest/Testing Library coverage for transcript and lyrics editing, archive import, interrupted-job retry, and upload errors.
+- Add transcript segment split/merge, editable start/end times, find/replace, and grouped undo/redo controls.
+- Extend transcript saves to validate and persist structural timing edits while retaining text-only API compatibility.
 
 ### Changed
 
@@ -19,9 +21,10 @@ All notable local release-candidate changes for Aquill are tracked here.
 
 ### Verified
 
-- Backend quality passes with 23 fake-driven tests.
-- Frontend quality passes with 4 component workflow tests and a production build.
+- Backend quality passes with 26 fake-driven tests.
+- Frontend quality passes with 5 component workflow tests and a production build.
 - The compiled UI and API pass the live smoke from the same port with all runtime storage under the D-drive checkout.
+- Desktop and narrow-viewport in-app browser checks pass with no console warnings or errors.
 
 ## 0.1.0-alpha - 2026-06-29
 
