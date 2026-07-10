@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import mimetypes
 import os
 import shutil
 import threading
@@ -80,6 +81,21 @@ ARTIFACTS = {
     "srt": "subtitles.srt",
     "vtt": "subtitles.vtt",
     "audio": "audio.wav",
+}
+
+PREVIEW_MEDIA_SUFFIXES = {
+    ".aac",
+    ".flac",
+    ".m4a",
+    ".m4v",
+    ".mov",
+    ".mp3",
+    ".mp4",
+    ".oga",
+    ".ogg",
+    ".opus",
+    ".wav",
+    ".webm",
 }
 
 ACTIVE_STATUSES = {"queued", "extracting", "transcribing", "writing"}
@@ -465,6 +481,21 @@ def download_artifact(job_id: str, artifact: str) -> FileResponse:
     return FileResponse(path, filename=file_name)
 
 
+@app.get("/api/jobs/{job_id}/media")
+def preview_job_media(job_id: str) -> FileResponse:
+    job = require_completed_job(job_id)
+    path = preview_media_path(job)
+    if path is None:
+        raise HTTPException(status_code=404, detail="Local preview media is not available for this job.")
+    media_type = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    return FileResponse(
+        path,
+        filename=path.name,
+        media_type=media_type,
+        content_disposition_type="inline",
+    )
+
+
 @app.get("/api/jobs/{job_id}/archive")
 def download_job_archive(job_id: str) -> FileResponse:
     job = require_completed_job(job_id)
@@ -659,16 +690,35 @@ def public_job(job: JobRecord) -> dict[str, object]:
         }
         payload["transcript_url"] = f"/api/jobs/{job.id}/transcript"
         payload["archive_url"] = f"/api/jobs/{job.id}/archive"
+        payload["media_url"] = f"/api/jobs/{job.id}/media" if preview_media_path(job) else None
     else:
         payload["artifacts"] = {}
         payload["transcript_url"] = None
         payload["archive_url"] = None
+        payload["media_url"] = None
     payload["has_original_transcript"] = job.status == "completed" and original_outputs_available(Path(job.output_dir))
     payload["can_cancel"] = job.status in ACTIVE_STATUSES
     payload["can_retry"] = job.status in {"completed", "failed", "cancelled"}
     payload["can_delete"] = job.status not in RUNNING_STATUSES and not job_future_running(job.id)
     payload["can_open_output"] = Path(job.output_dir).exists()
     return payload
+
+
+def preview_media_path(job: JobRecord) -> Path | None:
+    output_root = outputs_dir().resolve()
+    retained_audio = (Path(job.output_dir) / ARTIFACTS["audio"]).resolve()
+    if retained_audio.is_file() and retained_audio.is_relative_to(output_root):
+        return retained_audio
+
+    input_root = inputs_dir().resolve()
+    source = Path(job.input_path).resolve()
+    if (
+        source.is_file()
+        and source.is_relative_to(input_root)
+        and source.suffix.lower() in PREVIEW_MEDIA_SUFFIXES
+    ):
+        return source
+    return None
 
 
 def job_future_running(job_id: str) -> bool:

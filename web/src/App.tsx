@@ -1,5 +1,6 @@
 import {
   Activity,
+  AlertTriangle,
   Captions,
   Check,
   Combine,
@@ -9,6 +10,7 @@ import {
   FileJson,
   FileText,
   FolderOpen,
+  Headphones,
   Loader2,
   Mic2,
   Play,
@@ -24,10 +26,18 @@ import {
   Trash2,
   Undo2,
   Upload,
+  WrapText,
   Waves,
   XCircle
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+
+import {
+  DEFAULT_SUBTITLE_QUALITY_PROFILE,
+  analyseSubtitleCues,
+  wrapSubtitleText,
+  type SubtitleQualityProfile
+} from "./subtitleQuality";
 
 type JobStatus = "queued" | "extracting" | "transcribing" | "writing" | "completed" | "failed" | "cancelled";
 type JobFilter = "all" | "active" | "completed" | "attention";
@@ -53,6 +63,7 @@ type Job = {
   artifacts: Record<string, string>;
   transcript_url: string | null;
   archive_url: string | null;
+  media_url: string | null;
   has_original_transcript: boolean;
   can_cancel: boolean;
   can_retry: boolean;
@@ -140,6 +151,14 @@ const MODEL_OPTIONS = ["tiny", "base", "small", "medium", "large-v3"];
 const COMPUTE_OPTIONS = ["int8", "float16", "float32"];
 const DEVICE_OPTIONS = ["auto", "cpu", "cuda"];
 const SETTINGS_KEY = "aquill-settings-v1";
+const SUBTITLE_QUALITY_KEY = "aquill-subtitle-quality-v1";
+const SUBTITLE_PROFILE_LIMITS: Record<keyof SubtitleQualityProfile, readonly [number, number]> = {
+  maxCharsPerLine: [20, 80],
+  maxLines: [1, 4],
+  maxCps: [8, 40],
+  minDuration: [0.2, 5],
+  maxDuration: [1, 15]
+};
 const DEFAULT_SETTINGS: Settings = {
   version: 1,
   model: "base",
@@ -188,6 +207,9 @@ function App() {
   const [transcriptSearch, setTranscriptSearch] = useState("");
   const [transcriptReplacement, setTranscriptReplacement] = useState("");
   const [editorStatus, setEditorStatus] = useState<string | null>(null);
+  const [subtitleProfile, setSubtitleProfile] = useState<SubtitleQualityProfile>(() => loadSubtitleQualityProfile());
+  const [audioCurrentTime, setAudioCurrentTime] = useState(0);
+  const [audioStatus, setAudioStatus] = useState<string | null>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -211,6 +233,7 @@ function App() {
   const [settings, setSettings] = useState<Settings>(() => loadSettings());
   const [activePreset, setActivePreset] = useState<PresetMode>("standard");
   const editBaselineRef = useRef<TranscriptSegment[] | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const segmentCaretsRef = useRef(new Map<number, number>());
   const segmentTextareasRef = useRef(new Map<number, HTMLTextAreaElement>());
   const searchCursorRef = useRef({ segmentPosition: 0, offset: 0 });
@@ -261,6 +284,19 @@ function App() {
     () => (transcriptStructureIsDirty ? validateSegmentTimings(draftSegments, transcript?.duration ?? null) : null),
     [draftSegments, transcript?.duration, transcriptStructureIsDirty]
   );
+  const subtitleQuality = useMemo(
+    () => analyseSubtitleCues(draftSegments, subtitleProfile),
+    [draftSegments, subtitleProfile]
+  );
+  const activeAudioSegmentIndex = useMemo(
+    () =>
+      activeJob?.media_url
+        ? draftSegments.find(
+            (segment) => audioCurrentTime >= segment.start && audioCurrentTime < segment.end
+          )?.index ?? null
+        : null,
+    [activeJob?.media_url, audioCurrentTime, draftSegments]
+  );
 
   useEffect(() => {
     void refreshJobs();
@@ -273,6 +309,15 @@ function App() {
   useEffect(() => {
     window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    window.localStorage.setItem(SUBTITLE_QUALITY_KEY, JSON.stringify(subtitleProfile));
+  }, [subtitleProfile]);
+
+  useEffect(() => {
+    setAudioCurrentTime(0);
+    setAudioStatus(null);
+  }, [activeJob?.id, activeJob?.media_url]);
 
   useEffect(() => {
     if (!activeJob || activeJob.status !== "completed" || !activeJob.transcript_url) {
@@ -707,6 +752,42 @@ function App() {
       return;
     }
     applyDraftSegments(next, `${replacements} replacement${replacements === 1 ? "" : "s"}`);
+  }
+
+  function updateSubtitleProfile(field: keyof SubtitleQualityProfile, value: number) {
+    if (!Number.isFinite(value)) return;
+    setSubtitleProfile((current) => {
+      const [minimum, maximum] = SUBTITLE_PROFILE_LIMITS[field];
+      const next = { ...current, [field]: Math.min(maximum, Math.max(minimum, value)) };
+      if (field === "minDuration" && next.minDuration > next.maxDuration) {
+        next.maxDuration = next.minDuration;
+      }
+      if (field === "maxDuration" && next.maxDuration < next.minDuration) {
+        next.minDuration = next.maxDuration;
+      }
+      return next;
+    });
+  }
+
+  function wrapAllSubtitleCues() {
+    const next = draftSegments.map((segment) => ({
+      ...segment,
+      text: wrapSubtitleText(segment.text, subtitleProfile.maxCharsPerLine)
+    }));
+    if (segmentsEqual(next, draftSegments)) {
+      setEditorStatus(`Cues already wrap at ${subtitleProfile.maxCharsPerLine} characters`);
+      return;
+    }
+    applyDraftSegments(next, `Wrapped cues at ${subtitleProfile.maxCharsPerLine} characters`);
+  }
+
+  function playSubtitleCue(segment: TranscriptSegment) {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = segment.start;
+    setAudioCurrentTime(segment.start);
+    setAudioStatus(null);
+    void audio.play().catch(() => setAudioStatus("This media format could not be played by the browser."));
   }
 
   function removeSelectedFile(fileToRemove: File) {
@@ -1285,6 +1366,94 @@ function App() {
                   </span>
                 ) : null}
               </div>
+              <div className="subtitle-audio-tool" data-testid="subtitle-audio-tool">
+                <div className="subtitle-audio-heading">
+                  <Headphones size={17} aria-hidden />
+                  <strong>Audio preview</strong>
+                  <span>
+                    {activeAudioSegmentIndex ? `Cue ${activeAudioSegmentIndex}` : "No active cue"} / {formatPreciseTime(audioCurrentTime)}
+                  </span>
+                </div>
+                {activeJob?.media_url ? (
+                  <audio
+                    key={activeJob.media_url}
+                    ref={audioRef}
+                    controls
+                    preload="metadata"
+                    src={activeJob.media_url}
+                    onTimeUpdate={(event) => setAudioCurrentTime(event.currentTarget.currentTime)}
+                    onSeeked={(event) => setAudioCurrentTime(event.currentTarget.currentTime)}
+                    onCanPlay={() => setAudioStatus(null)}
+                    onError={() => setAudioStatus("This local media format is not playable in the browser.")}
+                  />
+                ) : (
+                  <span className="audio-unavailable">No local preview media</span>
+                )}
+                {audioStatus ? <span className="audio-status">{audioStatus}</span> : null}
+              </div>
+              <div className="subtitle-quality-tool" data-testid="subtitle-quality-tool">
+                <div className={`quality-summary ${subtitleQuality.warningCueCount > 0 ? "warning" : "clear"}`}>
+                  {subtitleQuality.warningCueCount > 0 ? (
+                    <AlertTriangle size={18} aria-hidden />
+                  ) : (
+                    <Check size={18} aria-hidden />
+                  )}
+                  <span>
+                    <strong>
+                      {subtitleQuality.warningCueCount > 0
+                        ? `${subtitleQuality.warningCueCount} cue${subtitleQuality.warningCueCount === 1 ? "" : "s"} to review`
+                        : "All cues clear"}
+                    </strong>
+                    <small>{subtitleQuality.issueCount} warning{subtitleQuality.issueCount === 1 ? "" : "s"}</small>
+                  </span>
+                </div>
+                <div className="quality-controls">
+                  <QualityNumberField
+                    label="Chars / line"
+                    value={subtitleProfile.maxCharsPerLine}
+                    min={SUBTITLE_PROFILE_LIMITS.maxCharsPerLine[0]}
+                    max={SUBTITLE_PROFILE_LIMITS.maxCharsPerLine[1]}
+                    step={1}
+                    onChange={(value) => updateSubtitleProfile("maxCharsPerLine", value)}
+                  />
+                  <QualityNumberField
+                    label="Max lines"
+                    value={subtitleProfile.maxLines}
+                    min={SUBTITLE_PROFILE_LIMITS.maxLines[0]}
+                    max={SUBTITLE_PROFILE_LIMITS.maxLines[1]}
+                    step={1}
+                    onChange={(value) => updateSubtitleProfile("maxLines", value)}
+                  />
+                  <QualityNumberField
+                    label="Max CPS"
+                    value={subtitleProfile.maxCps}
+                    min={SUBTITLE_PROFILE_LIMITS.maxCps[0]}
+                    max={SUBTITLE_PROFILE_LIMITS.maxCps[1]}
+                    step={1}
+                    onChange={(value) => updateSubtitleProfile("maxCps", value)}
+                  />
+                  <QualityNumberField
+                    label="Min seconds"
+                    value={subtitleProfile.minDuration}
+                    min={SUBTITLE_PROFILE_LIMITS.minDuration[0]}
+                    max={SUBTITLE_PROFILE_LIMITS.minDuration[1]}
+                    step={0.1}
+                    onChange={(value) => updateSubtitleProfile("minDuration", value)}
+                  />
+                  <QualityNumberField
+                    label="Max seconds"
+                    value={subtitleProfile.maxDuration}
+                    min={SUBTITLE_PROFILE_LIMITS.maxDuration[0]}
+                    max={SUBTITLE_PROFILE_LIMITS.maxDuration[1]}
+                    step={0.5}
+                    onChange={(value) => updateSubtitleProfile("maxDuration", value)}
+                  />
+                  <button className="secondary-button quality-wrap-button" type="button" onClick={wrapAllSubtitleCues}>
+                    <WrapText size={16} aria-hidden />
+                    Wrap cues
+                  </button>
+                </div>
+              </div>
               <div className="lyrics-tools" data-testid="lyrics-tools">
                 <label className="lyrics-field">
                   <span>Lyrics</span>
@@ -1333,7 +1502,13 @@ function App() {
               <div className="transcript-layout">
                 <div className="transcript-copy">
                   {draftSegments.map((segment, position) => (
-                    <div className="transcript-row" key={segment.index}>
+                    <div
+                      className={`transcript-row ${activeAudioSegmentIndex === segment.index ? "is-playing" : ""} ${
+                        subtitleQuality.cues[position]?.issues.length ? "has-quality-warning" : ""
+                      }`}
+                      data-testid={`transcript-row-${segment.index}`}
+                      key={segment.index}
+                    >
                       <div className="segment-time-editor">
                         <strong>#{segment.index}</strong>
                         <label>
@@ -1365,20 +1540,41 @@ function App() {
                           />
                         </label>
                       </div>
-                      <textarea
-                        aria-label={`Transcript segment ${segment.index}`}
-                        value={segment.text}
-                        ref={(element) => {
-                          if (element) segmentTextareasRef.current.set(segment.index, element);
-                          else segmentTextareasRef.current.delete(segment.index);
-                        }}
-                        onFocus={beginSegmentEdit}
-                        onBlur={finishSegmentEdit}
-                        onSelect={(event) => segmentCaretsRef.current.set(segment.index, event.currentTarget.selectionStart)}
-                        onChange={(event) => updateDraftSegment(segment.index, event.target.value)}
-                        rows={2}
-                      />
+                      <div className="segment-copy-editor">
+                        <textarea
+                          aria-label={`Transcript segment ${segment.index}`}
+                          value={segment.text}
+                          ref={(element) => {
+                            if (element) segmentTextareasRef.current.set(segment.index, element);
+                            else segmentTextareasRef.current.delete(segment.index);
+                          }}
+                          onFocus={beginSegmentEdit}
+                          onBlur={finishSegmentEdit}
+                          onSelect={(event) => segmentCaretsRef.current.set(segment.index, event.currentTarget.selectionStart)}
+                          onChange={(event) => updateDraftSegment(segment.index, event.target.value)}
+                          rows={2}
+                        />
+                        <div className="cue-diagnostics" aria-label={`Subtitle quality for segment ${segment.index}`}>
+                          <span className="cue-stat">
+                            {subtitleQuality.cues[position]?.duration.toFixed(1)}s / {formatReadingSpeed(subtitleQuality.cues[position]?.charactersPerSecond)} CPS
+                          </span>
+                          {subtitleQuality.cues[position]?.issues.map((issue) => (
+                            <span className="cue-warning" key={issue.code}>
+                              {issue.message}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                       <div className="segment-actions">
+                        <button
+                          type="button"
+                          title={activeJob?.media_url ? "Play from cue" : "Local preview media unavailable"}
+                          aria-label={`Play segment ${segment.index}`}
+                          disabled={!activeJob?.media_url}
+                          onClick={() => playSubtitleCue(segment)}
+                        >
+                          <Play size={16} aria-hidden />
+                        </button>
                         <button
                           type="button"
                           title="Split at cursor"
@@ -1404,6 +1600,7 @@ function App() {
                   <Metric label="Language" value={transcript.language ?? "auto"} />
                   <Metric label="Duration" value={transcript.duration ? formatTime(transcript.duration) : "unknown"} />
                   <Metric label="Segments" value={String(draftSegments.length)} />
+                  <Metric label="Cue warnings" value={String(subtitleQuality.warningCueCount)} />
                 </aside>
               </div>
             </>
@@ -1456,6 +1653,38 @@ function TextField({
     <label className="field">
       <span>{label}</span>
       <input value={value} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} />
+    </label>
+  );
+}
+
+function QualityNumberField({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="quality-number-field">
+      <span>{label}</span>
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(event) => {
+          if (event.target.value !== "") onChange(Number(event.target.value));
+        }}
+      />
     </label>
   );
 }
@@ -1624,6 +1853,42 @@ function loadSettings(): Settings {
   } catch {
     return DEFAULT_SETTINGS;
   }
+}
+
+function loadSubtitleQualityProfile(): SubtitleQualityProfile {
+  try {
+    const raw = window.localStorage.getItem(SUBTITLE_QUALITY_KEY);
+    if (!raw) return DEFAULT_SUBTITLE_QUALITY_PROFILE;
+    const parsed = JSON.parse(raw) as Partial<SubtitleQualityProfile>;
+    const profile = { ...DEFAULT_SUBTITLE_QUALITY_PROFILE };
+    for (const field of Object.keys(profile) as (keyof SubtitleQualityProfile)[]) {
+      const value = Number(parsed[field]);
+      if (!Number.isFinite(value)) continue;
+      const [minimum, maximum] = SUBTITLE_PROFILE_LIMITS[field];
+      profile[field] = Math.min(maximum, Math.max(minimum, value));
+    }
+    if (profile.minDuration > profile.maxDuration) profile.maxDuration = profile.minDuration;
+    return profile;
+  } catch {
+    return DEFAULT_SUBTITLE_QUALITY_PROFILE;
+  }
+}
+
+function formatReadingSpeed(value: number | undefined) {
+  if (value === undefined) return "0.0";
+  return Number.isFinite(value) ? value.toFixed(1) : "n/a";
+}
+
+function formatPreciseTime(seconds: number) {
+  const totalTenths = Math.max(0, Math.floor(seconds * 10));
+  const hours = Math.floor(totalTenths / 36_000);
+  const minutes = Math.floor((totalTenths % 36_000) / 600);
+  const rest = Math.floor((totalTenths % 600) / 10);
+  const tenths = totalTenths % 10;
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(rest).padStart(2, "0")}.${tenths}`;
+  }
+  return `${minutes}:${String(rest).padStart(2, "0")}.${tenths}`;
 }
 
 function formatTime(seconds: number) {
