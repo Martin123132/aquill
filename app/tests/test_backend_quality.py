@@ -13,6 +13,8 @@ from contextlib import closing
 from pathlib import Path
 from unittest import mock
 
+from fastapi import FastAPI
+
 
 TEST_ROOT = Path(__file__).resolve().parents[2] / "tmp" / "backend-quality-tests"
 os.environ["TRANSCRIBER_ROOT"] = str(TEST_ROOT)
@@ -116,6 +118,48 @@ class BackendQualityTests(unittest.TestCase):
         self.assertFalse(health["worker_busy"])
         self.assertEqual(health["active_jobs"], 0)
         self.assertIsInstance(health["total_jobs"], int)
+
+    def test_web_app_mount_requires_a_built_index(self) -> None:
+        missing_dist = tmp_dir() / f"missing-web-{uuid.uuid4().hex}"
+        self.assertFalse(server.mount_web_app(FastAPI(), missing_dist))
+
+        web_dist = tmp_dir() / f"built-web-{uuid.uuid4().hex}"
+        web_dist.mkdir(parents=True)
+        (web_dist / "index.html").write_text("<title>Aquill</title>", encoding="utf-8")
+        mounted_app = FastAPI()
+
+        self.assertTrue(server.mount_web_app(mounted_app, web_dist))
+        self.assertTrue(any(getattr(route, "name", None) == "web" for route in mounted_app.routes))
+
+    def test_recover_interrupted_jobs_marks_retryable_and_removes_temp_audio(self) -> None:
+        interrupted = [
+            self._insert_job(f"test-recovery-{status}-{uuid.uuid4().hex}", status)
+            for status in ("queued", "extracting", "transcribing", "writing")
+        ]
+        completed = self._insert_job(f"test-recovery-completed-{uuid.uuid4().hex}", "completed")
+        temp_paths: list[Path] = []
+        for job in interrupted:
+            temp_path = tmp_dir() / f"{Path(job.output_dir).name}.wav"
+            temp_path.write_text("abandoned audio", encoding="utf-8")
+            temp_paths.append(temp_path)
+
+        recovered_count = server.recover_interrupted_jobs()
+
+        self.assertEqual(recovered_count, len(interrupted))
+        for job, temp_path in zip(interrupted, temp_paths, strict=True):
+            recovered = server.require_job(job.id)
+            self.assertEqual(recovered.status, "failed")
+            self.assertEqual(recovered.error, "Interrupted by API restart before completion.")
+            self.assertEqual(recovered.progress_message, "Interrupted by API restart before completion.")
+            self.assertIsNotNone(recovered.completed_at)
+            self.assertFalse(temp_path.exists())
+            self.assertTrue(Path(recovered.input_path).exists())
+            public = server.public_job(recovered)
+            self.assertTrue(public["can_retry"])
+            self.assertFalse(public["can_cancel"])
+
+        self.assertEqual(server.require_job(completed.id).status, "completed")
+        self.assertEqual(server.recover_interrupted_jobs(), 0)
 
     def test_cancel_queued_job_marks_final_and_clears_future_state(self) -> None:
         blocking_id = f"test-blocking-{uuid.uuid4().hex}"

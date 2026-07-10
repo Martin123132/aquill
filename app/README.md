@@ -72,7 +72,13 @@ Use `tiny` or `base` for faster first tests. Larger models are slower and requir
 
 ## API
 
-Run:
+The normal local app command builds the interface and serves both the UI and API from one process at `http://127.0.0.1:5190`:
+
+```powershell
+.\scripts\start-local.ps1
+```
+
+For standalone API development, run:
 
 ```powershell
 .\scripts\serve-api.ps1 --host 127.0.0.1 --port 8091
@@ -106,7 +112,7 @@ The API accepts one active transcription worker by default.
 The health endpoint reports API status, project root, database path and availability, worker busy state, active jobs, and total jobs.
 Job history is stored in `data\transcriber.db`.
 Completed output folders are rescanned on API startup so older jobs can reappear.
-Interrupted active jobs are marked failed on API startup so the queue does not get stuck after a restart.
+Interrupted active jobs are marked failed on API startup so the queue does not get stuck after a restart. Their abandoned temporary WAV is removed while the original input is preserved for one-click retry.
 Cancel requests work for queued jobs and running jobs. Running jobs stop at safe checkpoints during FFmpeg extraction, Whisper segment iteration, or before export writing, and temporary audio is cleaned up.
 Completed jobs can be exported as ZIP archives containing a `manifest.json` plus available transcript, subtitle, JSON, and optional kept audio artifacts.
 Known lyrics can be previewed with `POST /api/jobs/{job_id}/lyrics/preview` for a completed job, then applied with `POST /api/jobs/{job_id}/lyrics`. The API removes simple section labels such as `[Chorus]`, aligns lyric lines to the job duration or existing segment timing, backs up the original TXT, JSON, SRT, and VTT artifacts once, and regenerates the normal outputs. `POST /api/jobs/{job_id}/transcript/restore-original` restores those backed-up artifacts.
@@ -123,12 +129,18 @@ The storage endpoint reports the active project, input, output, model, data, tem
 
 ## Tests
 
-Run the backend quality check with:
+Run all backend tests, frontend tests, and the production web build with:
+
+```powershell
+.\scripts\quality-all.ps1
+```
+
+Run only the backend quality check with:
 
 ```powershell
 .\scripts\quality-backend.ps1
 ```
 
-That command compiles the backend package and tests, then runs the focused `unittest` suite. The tests use fake transcription work and an isolated D-drive test root under `tmp`.
+The backend command compiles the package and tests, then runs the focused `unittest` suite. The frontend suite uses mocked local API responses and covers transcript/lyrics editing, archive import, interrupted-job retry, and upload errors. Tests use fake transcription work and D-drive project storage.
 
 This backend check does not download Whisper models or run real transcription.

@@ -1,6 +1,6 @@
 param(
   [string]$WebBase = "http://127.0.0.1:5190",
-  [string]$ApiBase = "http://127.0.0.1:8091"
+  [string]$ApiBase = "http://127.0.0.1:5190"
 )
 
 $ErrorActionPreference = "Stop"
@@ -65,24 +65,28 @@ Write-Host "1/4 Checking web page shell..."
 $Index = Invoke-Text -Uri "$WebBase/"
 Assert-Contains -Text $Index -Needle "<title>Aquill</title>" -Label "Web index"
 
-Write-Host "2/4 Checking frontend source wiring..."
-$AppSource = Invoke-Text -Uri "$WebBase/src/App.tsx"
-Assert-Contains -Text $AppSource -Needle "/api/system/storage" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "/api/jobs/import/preview" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "archive-import-input" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "archive-preview" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "job-export-button" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "job-search-input" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "lyrics-input" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "lyrics-preview-button" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "lyrics-align-button" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "restore-original-button" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "preset-song-button" -Label "App source"
-Assert-Contains -Text $AppSource -Needle 'key: "completed"' -Label "App source"
-Assert-Contains -Text $AppSource -Needle '"data-testid": `job-filter-${filter.key}`' -Label "App source"
-Assert-Contains -Text $AppSource -Needle "D-drive local" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "license-panel" -Label "App source"
-Assert-Contains -Text $AppSource -Needle "PolyForm Noncommercial License 1.0.0" -Label "App source"
+Write-Host "2/4 Checking compiled frontend wiring..."
+$ScriptMatch = [regex]::Match($Index, '<script[^>]+src="([^"]+)"')
+if (-not $ScriptMatch.Success) {
+  throw "Web index did not contain a compiled script asset."
+}
+$ScriptPath = $ScriptMatch.Groups[1].Value
+$BundleUri = "$($WebBase.TrimEnd('/'))/$($ScriptPath.TrimStart('/'))"
+$AppBundle = Invoke-Text -Uri $BundleUri
+Assert-Contains -Text $AppBundle -Needle "/api/system/storage" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "/api/jobs/import/preview" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "archive-import-input" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "archive-preview" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "job-export-button" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "job-search-input" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "lyrics-input" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "lyrics-preview-button" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "lyrics-align-button" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "restore-original-button" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "preset-song-button" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "D-drive local" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "license-panel" -Label "Compiled app"
+Assert-Contains -Text $AppBundle -Needle "PolyForm Noncommercial License 1.0.0" -Label "Compiled app"
 
 Write-Host "3/4 Checking API health and storage..."
 $Health = Invoke-Json -Uri "$ApiBase/api/health"
@@ -97,12 +101,12 @@ foreach ($Property in $Storage.PSObject.Properties) {
   Assert-DPath -Value ([string]$Property.Value) -Label "Storage $($Property.Name)"
 }
 
-Write-Host "4/4 Checking web proxy reaches the API..."
+Write-Host "4/4 Checking the same-origin app reaches the API..."
 $ProxyHealth = Invoke-Json -Uri "$WebBase/api/health"
 if ($ProxyHealth.status -ne "ok") {
   throw "Web proxy health was '$($ProxyHealth.status)', expected 'ok'."
 }
-Assert-DPath -Value ([string]$ProxyHealth.root) -Label "Proxy health root"
+Assert-DPath -Value ([string]$ProxyHealth.root) -Label "Same-origin health root"
 
 Write-Host ""
 Write-Host "Web UI smoke passed."

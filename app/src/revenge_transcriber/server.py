@@ -8,6 +8,7 @@ import shutil
 import threading
 import uuid
 from concurrent.futures import Future, ThreadPoolExecutor
+from contextlib import asynccontextmanager
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -37,12 +38,20 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.background import BackgroundTask
 from fastapi.responses import FileResponse, JSONResponse
+from starlette.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .exceptions import JobCancelled
 
 
-app = FastAPI(title="Aquill API", version="0.1.0")
+@asynccontextmanager
+async def app_lifespan(_app: FastAPI):
+    rescan_completed_outputs()
+    recover_interrupted_jobs()
+    yield
+
+
+app = FastAPI(title="Aquill API", version="0.1.0", lifespan=app_lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -705,9 +714,11 @@ def download_model_job(model: str) -> None:
             _model_status[model] = {"status": "failed", "error": str(exc)}
 
 
-def recover_interrupted_jobs() -> None:
+def recover_interrupted_jobs() -> int:
+    recovered = 0
     for job in db_list_jobs():
         if job.status in ACTIVE_STATUSES:
+            (tmp_dir() / f"{Path(job.output_dir).name}.wav").unlink(missing_ok=True)
             failed_at = timestamp()
             update_job_status(
                 job.id,
@@ -717,6 +728,8 @@ def recover_interrupted_jobs() -> None:
                 progress_message="Interrupted by API restart before completion.",
                 completed_at=failed_at,
             )
+            recovered += 1
+    return recovered
 
 
 def rescan_completed_outputs() -> int:
@@ -763,8 +776,15 @@ def scanned_job_id(output_dir: Path) -> str:
     return f"scan-{digest[:24]}"
 
 
-rescan_completed_outputs()
-recover_interrupted_jobs()
+def mount_web_app(application: FastAPI = app, directory: Path | None = None) -> bool:
+    web_dist = directory or (project_root() / "web" / "dist")
+    if not (web_dist / "index.html").is_file():
+        return False
+    application.mount("/", StaticFiles(directory=web_dist, html=True), name="web")
+    return True
+
+
+WEB_APP_MOUNTED = mount_web_app()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -777,7 +797,7 @@ def main(argv: list[str] | None = None) -> int:
     import uvicorn
 
     uvicorn.run(
-        "revenge_transcriber.server:app",
+        "revenge_transcriber.server:app" if args.reload else app,
         host=args.host,
         port=args.port,
         reload=args.reload,

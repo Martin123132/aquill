@@ -30,5 +30,5 @@ finally {
 }
 
 Write-Host ""
-Write-Host "Web setup complete. Start the UI with:"
-Write-Host "  $env:TRANSCRIBER_ROOT\scripts\serve-web.ps1"
+Write-Host "Web setup complete. Start Aquill with:"
+Write-Host "  $env:TRANSCRIBER_ROOT\scripts\start-local.ps1"
