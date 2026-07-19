@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "id": "uk.co.twohandsnetwork.aquill",
+  "name": "Aquill",
+  "summary": "Private, local transcription and subtitle editing without subscriptions.",
+  "publisher": "Two Hands Network",
+  "version": "0.1.0",
+  "platform": "windows",
+  "architecture": "x64",
+  "license": {
+    "name": "PolyForm Noncommercial License 1.0.0",
+    "commercialUseRequiresSeparateLicense": true
+  },
+  "contact": "glyn@twohandsnetwork.co.uk",
+  "homepage": "https://github.com/Martin123132/aquill",
+  "installer": {
+    "file": "Aquill-Setup-0.1.0-x64.exe",
+    "silentArguments": "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
+    "installRoot": "D:\\Apps\\Aquill"
+  },
+  "application": {
+    "executable": "Aquill.exe",
+    "dataRoot": "D:\\Aquill",
+    "networkMode": "loopback-only",
+    "cloudStorage": false
+  }
+}

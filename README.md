@@ -7,6 +7,7 @@ Aquill is a source-available, local-first transcription and subtitle workbench. 
 ## What It Does
 
 - Runs the compiled React workbench and FastAPI backend in one local process.
+- Runs as a native Windows desktop window with its local service contained inside the app lifecycle.
 - Queues audio or video files for local transcription with `faster-whisper`.
 - Exports TXT, JSON, SRT, and VTT.
 - Lets you edit text and timing, split or merge segments, find/replace, undo/redo, and regenerate exports.
@@ -23,7 +24,7 @@ Aquill is a source-available, local-first transcription and subtitle workbench. 
 
 ## Not Yet
 
-- No packaged installer yet.
+- No code-signed stable Windows release yet.
 - No cloud transcription or hosted SaaS mode.
 - No speaker diarization UI yet.
 - No stable release yet.
@@ -81,6 +82,27 @@ Stop Aquill:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\stop-local.ps1
 ```
 
+## Windows App
+
+Install the desktop packaging dependencies into Aquill's D-drive virtual environment, then launch the native development app:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\setup-packaging.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\start-desktop.ps1
+```
+
+Closing the Aquill window also stops its private loopback service. Installed builds keep all writable application data under `D:\Aquill`; the application itself installs to `D:\Apps\Aquill`.
+
+Build the portable app, verify its packaged runtime, and create the Windows installer:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-windows-app.ps1
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\quality-packaging.ps1 -SkipBuild
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\build-windows-installer.ps1 -SkipAppBuild
+```
+
+Generated portable ZIPs, installers, SHA-256 hashes, and release metadata are written to the ignored `release\` directory. The store-neutral seed metadata is [installer/app-store-manifest.template.json](installer/app-store-manifest.template.json). Development installers are unsigned, so Windows may show an unknown-publisher warning until a future release is code-signed.
+
 For frontend development with Vite hot reload and the API on port `8091`, use:
 
 ```powershell
@@ -116,6 +138,12 @@ Run the live web smoke after `start-local.ps1`:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\quality-all.ps1 -IncludeWebSmoke
 ```
 
+Build and smoke-test the native packaged application without opening a window:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\quality-all.ps1 -IncludePackaging
+```
+
 Run release posture checks before tagging or sharing a local build:
 
 ```powershell
@@ -141,6 +169,7 @@ The following directories are intentionally ignored and may contain private or l
 - `cache/` pip, npm, Hugging Face, Torch, Python, and tooling caches
 - `tmp/` temporary extraction and test files
 - `web/dist/` and `web/tsconfig.tsbuildinfo` web build output
+- `app/build/`, `app/dist/`, and `release/` packaged application and installer output
 
 Do not commit media, transcripts, model files, caches, databases, screenshots, archives, or build output unless a future release process explicitly calls for sanitized fixtures.
 
@@ -150,6 +179,7 @@ Do not commit media, transcripts, model files, caches, databases, screenshots, a
 app/       Python package and CLI
 web/       React/Vite browser UI
 scripts/   PowerShell setup, quality, smoke, and run helpers
+installer/ Windows executable, installer, and app-store build definitions
 models/    Whisper model downloads, ignored by Git
 inputs/    Local media inputs, ignored by Git
 outputs/   Generated transcripts/subtitles, ignored by Git
@@ -190,3 +220,5 @@ The first public alpha slice works:
 26. Review per-cue line length, line count, reading speed, and duration warnings with adjustable quality thresholds.
 27. Wrap cue text without losing words, then save the wrapped text into regenerated SRT and VTT exports.
 28. Preview retained audio or the original validated local upload and follow the active cue during playback.
+29. Run as a single-instance native Windows app whose private loopback service stops with its window.
+30. Build a portable x64 application, D-drive installer, SHA-256 release metadata, and app-store manifest seed.

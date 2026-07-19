@@ -20,9 +20,19 @@ dependencies = [
   "imageio-ffmpeg>=0.5.1"
 ]
 
+[project.optional-dependencies]
+desktop = [
+  "pywebview>=6.2,<7"
+]
+packaging = [
+  "pyinstaller>=6.21,<7",
+  "pywebview>=6.2,<7"
+]
+
 [project.scripts]
 aquill = "revenge_transcriber.cli:main"
 aquill-api = "revenge_transcriber.server:main"
+aquill-desktop = "revenge_transcriber.desktop:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

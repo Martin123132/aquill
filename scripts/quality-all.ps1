@@ -1,6 +1,7 @@
 param(
   [switch]$IncludeWebSmoke,
   [switch]$IncludeArchiveSmoke,
+  [switch]$IncludePackaging,
   [string]$WebBase = "http://127.0.0.1:5190",
   [string]$ApiBase = "http://127.0.0.1:5190",
   [string]$SourceJobId = ""
@@ -15,15 +16,18 @@ $BackendQuality = Join-Path $ProjectRoot "scripts\quality-backend.ps1"
 $WebQuality = Join-Path $ProjectRoot "scripts\quality-web.ps1"
 $WebSmoke = Join-Path $ProjectRoot "scripts\smoke-web-ui.ps1"
 $ArchiveSmoke = Join-Path $ProjectRoot "scripts\smoke-archive-roundtrip.ps1"
+$PackagingQuality = Join-Path $ProjectRoot "scripts\quality-packaging.ps1"
 $TotalSteps = 2
 if ($IncludeWebSmoke) { $TotalSteps += 1 }
 if ($IncludeArchiveSmoke) { $TotalSteps += 1 }
+if ($IncludePackaging) { $TotalSteps += 1 }
 
 Write-Host ""
 Write-Host "Full local quality check"
 Write-Host "  Project: $ProjectRoot"
 Write-Host "  Web smoke: $($IncludeWebSmoke.IsPresent)"
 Write-Host "  Archive smoke: $($IncludeArchiveSmoke.IsPresent)"
+Write-Host "  Packaging: $($IncludePackaging.IsPresent)"
 Write-Host ""
 
 Write-Host "1/$TotalSteps Backend quality..."
@@ -34,6 +38,18 @@ Write-Host "2/$TotalSteps Web quality..."
 & $WebQuality
 
 $Step = 3
+if ($IncludePackaging) {
+  Write-Host ""
+  Write-Host "$Step/$TotalSteps Packaged desktop quality..."
+  & $PackagingQuality -SkipWebBuild
+  $Step += 1
+}
+else {
+  Write-Host ""
+  Write-Host "Packaged desktop quality skipped. To include it, run:"
+  Write-Host "  $ProjectRoot\scripts\quality-all.ps1 -IncludePackaging"
+}
+
 if ($IncludeWebSmoke) {
   Write-Host ""
   Write-Host "$Step/$TotalSteps Web UI smoke..."

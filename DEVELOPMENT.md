@@ -15,6 +15,7 @@ Use this checklist before and after local changes.
 .\scripts\doctor.ps1
 .\scripts\setup.ps1
 .\scripts\setup-web.ps1
+.\scripts\setup-packaging.ps1
 ```
 
 Start local services when needed:
@@ -52,10 +53,26 @@ When the API is running and at least one completed local job exists, add archive
 .\scripts\quality-all.ps1 -IncludeArchiveSmoke
 ```
 
+Build and smoke-test the native packaged application without opening its window:
+
+```powershell
+.\scripts\quality-all.ps1 -IncludePackaging
+```
+
+The packaging smoke imports the bundled Whisper, WebView2, and FFmpeg runtime, starts the loopback API on a free port, checks its health, and verifies clean shutdown. It does not download a model or transcribe media.
+
+For a release candidate, build the installer after packaging quality passes:
+
+```powershell
+.\scripts\build-windows-installer.ps1 -SkipAppBuild
+```
+
+Keep `app\build\`, `app\dist\`, and `release\` untracked. The installer is D-drive-only and leaves the user's `D:\Aquill` data intact when the application is removed.
+
 ## Git Hygiene
 
 - Commit source, docs, package manifests, and scripts.
-- Do not commit `inputs/`, `outputs/`, `data/`, `models/`, `cache/`, `tmp/`, `.venv/`, `web/node_modules/`, `web/dist/`, or `web/tsconfig.tsbuildinfo`.
+- Do not commit `inputs/`, `outputs/`, `data/`, `models/`, `cache/`, `tmp/`, `.venv/`, `web/node_modules/`, `web/dist/`, `app/build/`, `app/dist/`, `release/`, or `web/tsconfig.tsbuildinfo`.
 - Check staged files before each commit:
 
 ```powershell

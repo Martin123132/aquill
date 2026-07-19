@@ -29,7 +29,17 @@ from .lyrics import (
     restore_original_outputs,
 )
 from .naming import make_job_name, safe_file_name
-from .paths import cache_dir, configure_environment, data_dir, inputs_dir, models_dir, outputs_dir, project_root, tmp_dir
+from .paths import (
+    cache_dir,
+    configure_environment,
+    data_dir,
+    inputs_dir,
+    models_dir,
+    outputs_dir,
+    project_root,
+    tmp_dir,
+    web_dist_dir,
+)
 from .pipeline import TranscriptionOptions, run_transcription_job
 from .records import JobRecord, JobStatus
 
@@ -870,7 +880,7 @@ def scanned_job_id(output_dir: Path) -> str:
 
 
 def mount_web_app(application: FastAPI = app, directory: Path | None = None) -> bool:
-    web_dist = directory or (project_root() / "web" / "dist")
+    web_dist = directory or web_dist_dir()
     if not (web_dist / "index.html").is_file():
         return False
     application.mount("/", StaticFiles(directory=web_dist, html=True), name="web")
