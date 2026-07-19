@@ -7,6 +7,7 @@ import sqlite3
 import threading
 import time
 import unittest
+import urllib.request
 import uuid
 import zipfile
 from contextlib import closing
@@ -24,10 +25,11 @@ if TEST_ROOT.exists():
 
 from revenge_transcriber import db, server  # noqa: E402
 from revenge_transcriber.archive import ArchiveImportError, build_job_archive, import_job_archive, preview_job_archive  # noqa: E402
+from revenge_transcriber.desktop import start_local_server  # noqa: E402
 from revenge_transcriber.exceptions import JobCancelled  # noqa: E402
 from revenge_transcriber.formatters import TranscriptResult, TranscriptSegment, read_json, write_all_outputs  # noqa: E402
 from revenge_transcriber.lyrics import align_lyrics_to_transcript, lyric_lines_from_text  # noqa: E402
-from revenge_transcriber.paths import tmp_dir  # noqa: E402
+from revenge_transcriber.paths import application_root, tmp_dir, web_dist_dir  # noqa: E402
 from revenge_transcriber.pipeline import TranscriptionOptions, run_transcription_job  # noqa: E402
 from revenge_transcriber.records import JobRecord  # noqa: E402
 
@@ -130,6 +132,37 @@ class BackendQualityTests(unittest.TestCase):
 
         self.assertTrue(server.mount_web_app(mounted_app, web_dist))
         self.assertTrue(any(getattr(route, "name", None) == "web" for route in mounted_app.routes))
+
+    def test_application_assets_can_be_separate_from_writable_storage(self) -> None:
+        assets_root = tmp_dir() / f"packaged-assets-{uuid.uuid4().hex}"
+        expected_web = assets_root / "web" / "dist"
+        expected_web.mkdir(parents=True)
+        (expected_web / "index.html").write_text("<title>Aquill</title>", encoding="utf-8")
+
+        with mock.patch.dict(os.environ, {"AQUILL_APP_ROOT": str(assets_root)}):
+            self.assertEqual(application_root(), assets_root.resolve())
+            self.assertEqual(web_dist_dir(), expected_web.resolve())
+            self.assertTrue(server.mount_web_app(FastAPI(), web_dist_dir()))
+
+        self.assertTrue(str(TEST_ROOT) in str(server.project_root()))
+
+    def test_desktop_local_server_uses_loopback_and_stops_cleanly(self) -> None:
+        test_app = FastAPI()
+
+        @test_app.get("/api/health")
+        def fake_health() -> dict[str, str]:
+            return {"status": "ok"}
+
+        runtime = start_local_server(test_app, timeout=5)
+        try:
+            self.assertTrue(runtime.url.startswith("http://127.0.0.1:"))
+            with urllib.request.urlopen(f"{runtime.url}/api/health", timeout=2) as response:
+                self.assertEqual(response.status, 200)
+                self.assertIn(b'"status":"ok"', response.read())
+        finally:
+            runtime.stop()
+
+        self.assertFalse(runtime.thread.is_alive())
 
     def test_recover_interrupted_jobs_marks_retryable_and_removes_temp_audio(self) -> None:
         interrupted = [

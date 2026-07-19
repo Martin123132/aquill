@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
-
-
-DEFAULT_ROOT = Path(os.environ.get("TRANSCRIBER_ROOT", Path.cwd()))
 
 
 class StoragePolicyError(RuntimeError):
@@ -24,7 +22,36 @@ def require_d_drive(path: str | Path, label: str) -> Path:
 
 
 def project_root() -> Path:
-    return require_d_drive(DEFAULT_ROOT, "Project root")
+    configured = os.environ.get("TRANSCRIBER_ROOT")
+    return require_d_drive(configured or Path.cwd(), "Project root")
+
+
+def set_project_root(path: str | Path) -> Path:
+    root = require_d_drive(path, "Project root")
+    os.environ["TRANSCRIBER_ROOT"] = str(root)
+    return root
+
+
+def installed_data_root() -> Path:
+    return require_d_drive(Path("D:/Aquill"), "Installed data root")
+
+
+def application_root() -> Path:
+    configured = os.environ.get("AQUILL_APP_ROOT")
+    if configured:
+        return resolve_path(configured)
+    if getattr(sys, "frozen", False):
+        bundle_root = getattr(sys, "_MEIPASS", Path(sys.executable).parent)
+        return resolve_path(bundle_root)
+
+    source_root = Path(__file__).resolve().parents[3]
+    if (source_root / "web").is_dir():
+        return source_root
+    return project_root()
+
+
+def web_dist_dir() -> Path:
+    return application_root() / "web" / "dist"
 
 
 def models_dir() -> Path:

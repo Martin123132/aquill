@@ -15,17 +15,21 @@ All notable local release-candidate changes for Aquill are tracked here.
 - Add adjustable line-length, line-count, reading-speed, and cue-duration diagnostics to the transcript editor.
 - Add undoable subtitle cue wrapping that is preserved in regenerated SRT and VTT exports.
 - Add synchronized local media preview with active-cue highlighting and a D-drive-root-validated media endpoint.
+- Add a single-instance native Windows launcher that contains the loopback API and stops it when the window closes.
+- Add reproducible PyInstaller portable builds, packaged runtime smoke coverage, an Inno Setup installer, SHA-256 release metadata, and a store-neutral app manifest seed.
 
 ### Changed
 
 - Make `scripts\start-local.ps1` build the production interface, start one hidden local service, and open the app by default.
 - Make `scripts\quality-web.ps1` run frontend tests before the production build.
 - Make the live UI smoke inspect the compiled bundle and same-origin API rather than Vite source files.
+- Separate read-only bundled web assets from writable `D:\Aquill` application data.
 
 ### Verified
 
-- Backend quality passes with 29 fake-driven tests.
+- Backend quality passes with 31 fake-driven tests.
 - Frontend quality passes with 9 unit and component workflow tests plus a production build.
+- The packaged executable imports Whisper, WebView2, and bundled FFmpeg, serves a healthy loopback API, and exits without leaving its local service running.
 - The compiled UI and API pass the live smoke from the same port with all runtime storage under the D-drive checkout.
 - Desktop and narrow-viewport in-app browser checks pass with no console warnings or errors.
 

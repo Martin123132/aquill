@@ -40,6 +40,15 @@ That creates a virtual environment at:
 
 and installs the CLI in editable mode.
 
+For the native Windows launcher and packaging tools:
+
+```powershell
+.\scripts\setup-packaging.ps1
+.\scripts\start-desktop.ps1
+```
+
+The desktop window contains the compiled workbench and private loopback API. Closing it stops the local API thread. Installed builds use `D:\Aquill` for writable data and do not place media, models, transcripts, databases, caches, or temp files beside the executable.
+
 ## Usage
 
 Put media files under `inputs`, then run:
@@ -147,3 +156,15 @@ Run only the backend quality check with:
 The backend command compiles the package and tests, then runs the focused `unittest` suite. The frontend suite uses mocked local API responses and covers split/merge, timing, find/replace, undo/redo, subtitle wrapping and diagnostics, synchronized playback state, transcript/lyrics editing, archive import, interrupted-job retry, and upload errors. Tests use fake transcription work and D-drive project storage.
 
 This backend check does not download Whisper models or run real transcription.
+
+Build and verify the self-contained Windows app with:
+
+```powershell
+.\scripts\quality-packaging.ps1
+```
+
+Compile the D-drive Inno Setup installer after the portable build passes:
+
+```powershell
+.\scripts\build-windows-installer.ps1 -SkipAppBuild
+```
