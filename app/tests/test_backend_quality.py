@@ -316,6 +316,70 @@ class BackendQualityTests(unittest.TestCase):
 
         self.assertEqual(getattr(raised.exception, "status_code", None), 409)
 
+    def test_media_preview_prefers_retained_audio_then_uses_safe_source(self) -> None:
+        job = self._insert_job(
+            f"test-media-preview-{uuid.uuid4().hex}",
+            "completed",
+            file_suffix=".mp3",
+        )
+        source = Path(job.input_path)
+        source.write_bytes(b"fake mp3")
+
+        self.assertEqual(server.preview_media_path(job), source.resolve())
+        public = server.public_job(job)
+        self.assertEqual(public["media_url"], f"/api/jobs/{job.id}/media")
+
+        response = server.preview_job_media(job.id)
+        self.assertEqual(Path(response.path), source.resolve())
+        self.assertIn("inline", response.headers["content-disposition"])
+
+        retained_audio = Path(job.output_dir) / "audio.wav"
+        retained_audio.parent.mkdir(parents=True, exist_ok=True)
+        retained_audio.write_bytes(b"fake wav")
+        self.assertEqual(server.preview_media_path(job), retained_audio.resolve())
+
+    def test_media_preview_rejects_non_media_and_paths_outside_storage(self) -> None:
+        job = self._insert_job(f"test-media-unavailable-{uuid.uuid4().hex}", "completed")
+        self.assertIsNone(server.preview_media_path(job))
+        self.assertIsNone(server.public_job(job)["media_url"])
+
+        with self.assertRaises(Exception) as raised:
+            server.preview_job_media(job.id)
+        self.assertEqual(getattr(raised.exception, "status_code", None), 404)
+
+        outside = tmp_dir() / "outside.mp3"
+        outside.write_bytes(b"not in inputs")
+        job.input_path = str(outside)
+        self.assertIsNone(server.preview_media_path(job))
+
+    def test_multiline_cues_are_preserved_in_subtitle_exports(self) -> None:
+        output_dir = server.outputs_dir() / f"test-wrapped-subtitles-{uuid.uuid4().hex}"
+        write_all_outputs(
+            TranscriptResult(
+                source="wrapped.wav",
+                language="en",
+                duration=3,
+                segments=[
+                    TranscriptSegment(
+                        index=1,
+                        start=0,
+                        end=3,
+                        text="First wrapped line\nSecond wrapped line",
+                    )
+                ],
+            ),
+            output_dir,
+        )
+
+        self.assertIn(
+            "First wrapped line\nSecond wrapped line",
+            (output_dir / "subtitles.srt").read_text(encoding="utf-8"),
+        )
+        self.assertIn(
+            "First wrapped line\nSecond wrapped line",
+            (output_dir / "subtitles.vtt").read_text(encoding="utf-8"),
+        )
+
     def test_import_archive_restores_artifacts_and_preserves_job_metadata(self) -> None:
         original = self._insert_job(f"test-import-source-{uuid.uuid4().hex}", "completed")
         original.file_name = "meeting-notes.mp3"
@@ -689,9 +753,9 @@ class BackendQualityTests(unittest.TestCase):
 
         self.assertEqual(getattr(raised.exception, "status_code", None), 400)
 
-    def _insert_job(self, job_id: str, status: str) -> JobRecord:
+    def _insert_job(self, job_id: str, status: str, file_suffix: str = ".txt") -> JobRecord:
         now = server.timestamp()
-        input_path = server.inputs_dir() / f"{job_id}.txt"
+        input_path = server.inputs_dir() / f"{job_id}{file_suffix}"
         output_dir = server.outputs_dir() / job_id
         input_path.parent.mkdir(parents=True, exist_ok=True)
         input_path.write_text("fixture", encoding="utf-8")

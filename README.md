@@ -10,6 +10,9 @@ Aquill is a source-available, local-first transcription and subtitle workbench. 
 - Queues audio or video files for local transcription with `faster-whisper`.
 - Exports TXT, JSON, SRT, and VTT.
 - Lets you edit text and timing, split or merge segments, find/replace, undo/redo, and regenerate exports.
+- Flags long lines, excessive reading speed, and short or long subtitle cues against adjustable local thresholds.
+- Wraps subtitle cue text at an adjustable line length with normal undo/redo before saving regenerated exports.
+- Plays validated local job media in the editor and highlights the cue at the current playback time.
 - Previews and applies pasted known lyrics into timed transcript and subtitle exports.
 - Backs up rough song transcripts before lyrics alignment so originals can be restored.
 - Offers a Song preset with safer defaults for music transcription.
@@ -184,3 +187,6 @@ The first public alpha slice works:
 23. Recover interrupted jobs after an app restart, clean their abandoned temporary audio, and leave them ready to retry.
 24. Run automated browser-component tests for uploads, retries, transcript/lyrics editing, and archive import.
 25. Split and merge transcript cues, edit start/end times, find and replace text, and undo or redo local edits before saving regenerated exports.
+26. Review per-cue line length, line count, reading speed, and duration warnings with adjustable quality thresholds.
+27. Wrap cue text without losing words, then save the wrapped text into regenerated SRT and VTT exports.
+28. Preview retained audio or the original validated local upload and follow the active cue during playback.

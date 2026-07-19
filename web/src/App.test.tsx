@@ -52,6 +52,7 @@ function makeJob(overrides: Record<string, unknown> = {}) {
     },
     transcript_url: "/api/jobs/job-1/transcript",
     archive_url: "/api/jobs/job-1/archive",
+    media_url: "/api/jobs/job-1/media",
     has_original_transcript: false,
     can_cancel: false,
     can_retry: true,
@@ -102,7 +103,9 @@ function transcriptFromSave(segments: SavedSegment[]) {
 
 describe("Aquill workbench", () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    window.localStorage.clear();
   });
 
   it("edits a transcript and previews then applies known lyrics", async () => {
@@ -224,6 +227,53 @@ describe("Aquill workbench", () => {
     expect(savedRequest.segments).toHaveLength(3);
     expect(savedRequest.segments[0]).toEqual(expect.objectContaining({ end: 1, text: "First" }));
     expect(savedRequest.segments[1]).toEqual(expect.objectContaining({ text: "clean line." }));
+  });
+
+  it("wraps subtitle cues, reports quality warnings, and follows audio playback", async () => {
+    const job = makeJob();
+    const difficultTranscript = {
+      ...TRANSCRIPT,
+      duration: 10,
+      segments: [
+        {
+          index: 1,
+          start: 0,
+          end: 0.5,
+          text: "This is an intentionally long subtitle cue that needs wrapping before it can be exported cleanly."
+        },
+        { index: 2, start: 0.5, end: 10, text: "A cue that stays on screen too long." }
+      ]
+    };
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      const base = routeBaseRequests(url, [job], init?.method);
+      if (base) return base;
+      if (url === job.transcript_url && !init?.method) return jsonResponse(difficultTranscript);
+      throw new Error(`Unhandled request: ${init?.method ?? "GET"} ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const playMock = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
+    const user = userEvent.setup();
+    render(<App />);
+
+    expect(await screen.findByText("2 cues to review")).toBeInTheDocument();
+    expect(screen.getByLabelText("Subtitle quality for segment 1")).toHaveTextContent("characters on one line");
+
+    await user.click(screen.getByRole("button", { name: "Wrap cues" }));
+    expect((screen.getByLabelText("Transcript segment 1") as HTMLTextAreaElement).value).toContain("\n");
+    expect(screen.getByRole("button", { name: "Undo transcript edit" })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: "Play segment 2" }));
+    const audio = screen.getByTestId("subtitle-audio-tool").querySelector("audio");
+    expect(audio).not.toBeNull();
+    expect(audio?.currentTime).toBe(0.5);
+    expect(playMock).toHaveBeenCalledOnce();
+
+    if (audio) {
+      audio.currentTime = 0.75;
+      fireEvent.timeUpdate(audio);
+    }
+    expect(screen.getByTestId("transcript-row-2")).toHaveClass("is-playing");
   });
 
   it("previews and imports an Aquill archive", async () => {
